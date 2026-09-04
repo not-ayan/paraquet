@@ -15,6 +15,7 @@ import {
 import { useUser } from '@clerk/nextjs';
 import { apiClient } from '@/lib/api';
 import { Equipment, Booking } from '@/lib/types';
+import AvailabilityCalendar from '@/components/AvailabilityCalendar';
 
 export default function EquipmentDetailPage() {
   const params = useParams();
@@ -27,9 +28,23 @@ export default function EquipmentDetailPage() {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   // Booking Form State
-  const [startDate, setStartDate] = useState('2026-09-10');
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  });
   const [startTime, setStartTime] = useState('10:00');
-  const [endDate, setEndDate] = useState('2026-09-12');
+  const [endDate, setEndDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 3);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  });
   const [endTime, setEndTime] = useState('18:00');
   const [purpose, setPurpose] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -264,6 +279,18 @@ export default function EquipmentDetailPage() {
             </div>
 
           </div>
+
+          {/* Availability Calendar & Schedule */}
+          <AvailabilityCalendar
+            bookings={equipmentBookings}
+            selectedStartDate={startDate}
+            selectedEndDate={endDate}
+            onSelectDateRange={(start, end) => {
+              setStartDate(start);
+              setEndDate(end);
+            }}
+            maxBorrowDays={equipment.maxBorrowDays || 3}
+          />
 
           {/* Steward Card */}
           <div className="card-paraquet p-5 flex flex-wrap sm:flex-nowrap items-center justify-between gap-4">
