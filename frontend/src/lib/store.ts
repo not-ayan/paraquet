@@ -143,6 +143,8 @@ export const CommuneStore = {
     purpose: string;
     equipmentName?: string;
     equipmentImage?: string;
+    borrowerName?: string;
+    borrowerEmail?: string;
   }): { success: boolean; booking?: Booking; error?: string } {
     const equipment = this.getEquipmentById(data.equipmentId);
     if (equipment && equipment.approvalStatus !== 'APPROVED') return { success: false, error: 'Equipment is not approved for borrowing.' };
@@ -157,8 +159,8 @@ export const CommuneStore = {
       equipmentName: equipment?.name || data.equipmentName || 'Campus Equipment',
       equipmentImage: equipment?.images[0] || data.equipmentImage || '',
       borrowerId: user.clerkId,
-      borrowerName: user.name,
-      borrowerEmail: user.email,
+      borrowerName: data.borrowerName || user.name,
+      borrowerEmail: data.borrowerEmail || user.email,
       startDateTime: data.startDateTime,
       endDateTime: data.endDateTime,
       purpose: data.purpose,

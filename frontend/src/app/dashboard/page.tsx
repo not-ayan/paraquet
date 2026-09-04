@@ -264,12 +264,10 @@ export default function DashboardPage() {
                               <span>Requested {requestedDate}</span>
                             </span>
                           )}
-                          {b.borrowerName && (
-                            <span className="flex items-center gap-1">
-                              <UserIcon className="w-3.5 h-3.5 flex-shrink-0 text-[#70706B]" />
-                              <span>Borrower: {b.borrowerName}</span>
-                            </span>
-                          )}
+                          <span className="flex items-center gap-1">
+                            <UserIcon className="w-3.5 h-3.5 flex-shrink-0 text-[#70706B]" />
+                            <span>Borrower: {(!b.borrowerName || b.borrowerName === 'Student Borrower' || b.borrowerName === 'Campus Borrower') ? user.name : b.borrowerName}</span>
+                          </span>
                         </div>
                       </div>
                     </div>

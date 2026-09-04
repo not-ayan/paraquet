@@ -11,7 +11,7 @@ export type AvailabilityStatus = 'AVAILABLE' | 'UNAVAILABLE' | 'BOOKED' | 'MAINT
 
 export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
-export type BookingStatus = 'PENDING' | 'APPROVED' | 'ACTIVE' | 'RETURNED' | 'CANCELLED' | 'REJECTED';
+export type BookingStatus = 'PENDING' | 'APPROVED' | 'ACTIVE' | 'RETURNED' | 'CANCELLED' | 'REJECTED' | 'OVERDUE';
 
 export type ConditionGrade = 'EXCELLENT' | 'GOOD' | 'FAIR' | 'DAMAGED';
 

@@ -57,6 +57,14 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
           headers['Authorization'] = `Bearer ${token}`;
         }
       }
+
+      const clerkUser = (window as any).Clerk?.user;
+      if (clerkUser) {
+        const name = clerkUser.fullName || clerkUser.firstName || clerkUser.username || '';
+        const email = clerkUser.primaryEmailAddress?.emailAddress || '';
+        if (name) headers['x-user-name'] = encodeURIComponent(name);
+        if (email) headers['x-user-email'] = encodeURIComponent(email);
+      }
     }
   } catch (err) {
     console.warn('Could not fetch Clerk session token', err);
@@ -145,9 +153,12 @@ function adaptBooking(raw: any): Booking {
     aiConfidence: raw.returnCondition.aiSimilarityScore,
   } : undefined;
 
+  const clientName = typeof window !== 'undefined' ? ((window as any).Clerk?.user?.fullName || (window as any).Clerk?.user?.firstName) : null;
   const borrowerId = typeof usr === 'object' ? usr?._id || usr?.id || usr?.clerkId : usr || 'me';
-  const borrowerName = typeof usr === 'object' ? usr?.name || 'Student Borrower' : (raw.borrowerName || 'Student Borrower');
-  const borrowerEmail = typeof usr === 'object' ? usr?.email || '' : (raw.borrowerEmail || '');
+  const borrowerName = (typeof usr === 'object' && usr?.name && usr.name !== 'Student Borrower' && usr.name !== 'Campus Borrower') 
+    ? usr.name 
+    : (raw.borrowerName || clientName || 'Campus Borrower');
+  const borrowerEmail = (typeof usr === 'object' && usr?.email) ? usr.email : (raw.borrowerEmail || '');
 
   return {
     id,
@@ -311,6 +322,22 @@ export const apiClient = {
     return CommuneStore.getUserBookings();
   },
 
+  // Check all requests and schedules for a specific equipment
+  async getEquipmentBookings(equipmentId: string): Promise<Booking[]> {
+    try {
+      const res = await fetch(`${API_BASE}/bookings/equipment/${equipmentId}`);
+      if (res.ok) {
+        const raw = await res.json();
+        if (Array.isArray(raw)) {
+          return raw.map(adaptBooking);
+        }
+      }
+    } catch (err) {
+      console.warn('API getEquipmentBookings fallback:', err);
+    }
+    return CommuneStore.getAllBookings().filter(b => b.equipmentId === equipmentId);
+  },
+
   async createBooking(data: {
     equipmentId: string;
     startDateTime: string;
@@ -318,6 +345,8 @@ export const apiClient = {
     purpose: string;
     equipmentName?: string;
     equipmentImage?: string;
+    borrowerName?: string;
+    borrowerEmail?: string;
   }): Promise<{ success: boolean; booking?: Booking; error?: string }> {
     try {
       const headers = await getAuthHeaders();
@@ -326,6 +355,8 @@ export const apiClient = {
         startDate: data.startDateTime,
         endDate: data.endDateTime,
         location: data.purpose,
+        borrowerName: data.borrowerName,
+        borrowerEmail: data.borrowerEmail,
       };
 
       const res = await fetch(`${API_BASE}/bookings`, {
@@ -339,6 +370,9 @@ export const apiClient = {
         const adapted = adaptBooking(json);
         if (adapted.equipmentName === 'Equipment' && data.equipmentName) {
           adapted.equipmentName = data.equipmentName;
+        }
+        if (data.borrowerName && (!adapted.borrowerName || adapted.borrowerName === 'Student Borrower' || adapted.borrowerName === 'Campus Borrower')) {
+          adapted.borrowerName = data.borrowerName;
         }
         if (data.equipmentImage && (!adapted.equipmentImage || adapted.equipmentImage.includes('unsplash.com/photo-1581092160607'))) {
           adapted.equipmentImage = data.equipmentImage;

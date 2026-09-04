@@ -9,17 +9,21 @@ import {
   Clock, 
   CheckCircle2, 
   AlertCircle,
+  AlertTriangle,
   UserCheck
 } from 'lucide-react';
+import { useUser } from '@clerk/nextjs';
 import { apiClient } from '@/lib/api';
-import { Equipment } from '@/lib/types';
+import { Equipment, Booking } from '@/lib/types';
 
 export default function EquipmentDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = params?.id as string;
+  const { user: clerkUser } = useUser();
 
   const [equipment, setEquipment] = useState<Equipment | null>(null);
+  const [equipmentBookings, setEquipmentBookings] = useState<Booking[]>([]);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   // Booking Form State
@@ -48,6 +52,15 @@ export default function EquipmentDetailPage() {
           if (isMounted) setLoading(false);
         });
 
+      // Fetch all requests and schedules for this equipment
+      apiClient.getEquipmentBookings(id)
+        .then((bks) => {
+          if (isMounted) setEquipmentBookings(bks);
+        })
+        .catch((err) => {
+          console.warn('Error loading equipment bookings:', err);
+        });
+
       return () => {
         isMounted = false;
       };
@@ -72,7 +85,45 @@ export default function EquipmentDetailPage() {
     );
   }
 
-  const isAvailable = equipment.availabilityStatus === 'AVAILABLE' && equipment.approvalStatus === 'APPROVED';
+  const now = new Date();
+
+  // Active, approved, or overdue bookings
+  const activeOrApprovedBooking = equipmentBookings.find(b => 
+    b.status === 'ACTIVE' || b.status === 'APPROVED' || b.status === 'OVERDUE'
+  );
+
+  const isOverdue = Boolean(
+    activeOrApprovedBooking && (
+      activeOrApprovedBooking.status === 'OVERDUE' ||
+      (activeOrApprovedBooking.status === 'ACTIVE' && new Date(activeOrApprovedBooking.endDateTime) < now)
+    )
+  );
+
+  const isCurrentlyWithUser = Boolean(activeOrApprovedBooking);
+
+  // Check collision with user selected dates
+  const selectedStart = new Date(`${startDate}T${startTime}:00Z`);
+  const selectedEnd = new Date(`${endDate}T${endTime}:00Z`);
+  const hasValidDateRange = !isNaN(selectedStart.getTime()) && !isNaN(selectedEnd.getTime()) && selectedStart < selectedEnd;
+
+  // Pending request collision (write nothing on main card, but show warning when picking same dates)
+  const pendingCollision = hasValidDateRange ? equipmentBookings.find(b => 
+    b.status === 'PENDING' &&
+    new Date(b.startDateTime) < selectedEnd &&
+    new Date(b.endDateTime) > selectedStart
+  ) : null;
+
+  // Approved or Active booking collision (blocks booking)
+  const approvedCollision = hasValidDateRange ? equipmentBookings.find(b => 
+    (b.status === 'ACTIVE' || b.status === 'APPROVED' || b.status === 'OVERDUE') &&
+    new Date(b.startDateTime) < selectedEnd &&
+    new Date(b.endDateTime) > selectedStart
+  ) : null;
+
+  const isAvailable = equipment.availabilityStatus === 'AVAILABLE' && 
+                      equipment.approvalStatus === 'APPROVED' && 
+                      !isOverdue && 
+                      !approvedCollision;
 
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,11 +132,19 @@ export default function EquipmentDetailPage() {
       return;
     }
 
+    if (approvedCollision) {
+      setBookingError(`This equipment is already reserved by ${approvedCollision.borrowerName} for these dates.`);
+      return;
+    }
+
     setIsSubmitting(true);
     setBookingError(null);
 
-    const startDateTime = new Date(`${startDate}T${startTime}:00Z`).toISOString();
-    const endDateTime = new Date(`${endDate}T${endTime}:00Z`).toISOString();
+    const startDateTime = selectedStart.toISOString();
+    const endDateTime = selectedEnd.toISOString();
+
+    const borrowerName = clerkUser?.fullName || clerkUser?.firstName || clerkUser?.username || 'Verified Student';
+    const borrowerEmail = clerkUser?.primaryEmailAddress?.emailAddress || '';
 
     const res = await apiClient.createBooking({
       equipmentId: equipment.id,
@@ -94,6 +153,8 @@ export default function EquipmentDetailPage() {
       purpose,
       equipmentName: equipment.name,
       equipmentImage: equipment.images?.[0],
+      borrowerName,
+      borrowerEmail,
     });
 
     setIsSubmitting(false);
@@ -244,10 +305,14 @@ export default function EquipmentDetailPage() {
                 <span className="text-fluid-micro uppercase font-bold tracking-wider text-[#70706B]">
                   Loan Request
                 </span>
-                {equipment.approvalStatus === 'APPROVED' && equipment.availabilityStatus === 'AVAILABLE' ? (
+                {isOverdue ? (
+                  <span className="badge-pill badge-rejected font-bold">● Overdue Loan</span>
+                ) : isCurrentlyWithUser ? (
+                  <span className="badge-pill badge-booked font-semibold">● In Use (with {activeOrApprovedBooking?.borrowerName})</span>
+                ) : equipment.approvalStatus === 'APPROVED' && equipment.availabilityStatus === 'AVAILABLE' ? (
                   <span className="badge-pill badge-available">Available to Borrow</span>
                 ) : (
-                  <span className="badge-pill badge-booked">Currently In Use</span>
+                  <span className="badge-pill badge-unavailable">Currently In Use</span>
                 )}
               </div>
 
@@ -259,6 +324,29 @@ export default function EquipmentDetailPage() {
                 Max recommended loan: {equipment.maxBorrowDays || 3} days
               </p>
             </div>
+
+            {/* Active / Approved / Overdue Custody Details */}
+            {isOverdue && activeOrApprovedBooking ? (
+              <div className="p-3.5 bg-[#FEE2E2] border border-[#FCA5A5] rounded-xl text-fluid-micro text-[#991B1B] space-y-1">
+                <div className="flex items-center gap-1.5 font-bold text-sm text-[#DC2626]">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>OVERDUE LOAN</span>
+                </div>
+                <p className="leading-relaxed">
+                  Currently in possession of <strong>{activeOrApprovedBooking.borrowerName}</strong>. This equipment was scheduled for return on {new Date(activeOrApprovedBooking.endDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at {new Date(activeOrApprovedBooking.endDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.
+                </p>
+              </div>
+            ) : isCurrentlyWithUser && activeOrApprovedBooking ? (
+              <div className="p-3.5 bg-[#EBF5FF] border border-[#BFDBFE] rounded-xl text-fluid-micro text-[#1E40AF] space-y-1">
+                <div className="flex items-center gap-1.5 font-bold text-sm text-[#2563EB]">
+                  <UserCheck className="w-4 h-4 flex-shrink-0" />
+                  <span>{activeOrApprovedBooking.status === 'ACTIVE' ? 'Currently Checked Out' : 'Approved Reservation'}</span>
+                </div>
+                <p className="leading-relaxed">
+                  Currently with <strong>{activeOrApprovedBooking.borrowerName}</strong> until {new Date(activeOrApprovedBooking.endDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ({new Date(activeOrApprovedBooking.endDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}).
+                </p>
+              </div>
+            ) : null}
 
             {bookingSuccess ? (
               <div className="p-6 bg-[#E8F5EB] rounded-2xl text-center space-y-2.5 animate-in zoom-in-95">
@@ -318,6 +406,32 @@ export default function EquipmentDetailPage() {
                   </div>
                 </div>
 
+                {/* Pending Request Date Collision Warning */}
+                {pendingCollision && !approvedCollision && (
+                  <div className="p-3 bg-[#FEF9C3] border border-[#FDE047] rounded-xl text-fluid-micro text-[#854D0E] flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5 text-[#CA8A04]" />
+                    <div className="space-y-0.5">
+                      <span className="font-bold block">Pending Request Conflict Warning</span>
+                      <p className="leading-relaxed">
+                        Another student has submitted a pending reservation for overlapping dates ({new Date(pendingCollision.startDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – {new Date(pendingCollision.endDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}). If approved, your request may collide.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Approved / Active Booking Collision Alert */}
+                {approvedCollision && (
+                  <div className="p-3 bg-[#FEE2E2] border border-[#FCA5A5] rounded-xl text-fluid-micro text-[#991B1B] flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-[#DC2626]" />
+                    <div className="space-y-0.5">
+                      <span className="font-bold block">Date Range Unavailable</span>
+                      <p className="leading-relaxed">
+                        This gear is already {approvedCollision.status === 'ACTIVE' ? 'checked out by' : 'approved for'} <strong>{approvedCollision.borrowerName}</strong> from {new Date(approvedCollision.startDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} to {new Date(approvedCollision.endDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}. Please select different dates.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Purpose */}
                 <div className="space-y-1.5">
                   <label className="block text-fluid-micro uppercase font-bold tracking-wider text-[#70706B]">
@@ -349,7 +463,15 @@ export default function EquipmentDetailPage() {
                       : 'inline-flex items-center justify-center bg-[#E2E2DE] text-[#9C9C96] cursor-not-allowed rounded-full font-semibold text-fluid-body'
                   }`}
                 >
-                  {isSubmitting ? 'Submitting Request...' : isAvailable ? 'Submit Reservation Request →' : 'Unavailable for Booking'}
+                  {isSubmitting 
+                    ? 'Submitting Request...' 
+                    : isOverdue 
+                      ? 'Currently Overdue' 
+                      : approvedCollision 
+                        ? 'Selected Dates Unavailable' 
+                        : isAvailable 
+                          ? 'Submit Reservation Request →' 
+                          : 'Unavailable for Booking'}
                 </button>
 
                 <p className="text-center text-fluid-micro text-[#70706B] pt-1">

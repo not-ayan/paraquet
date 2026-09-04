@@ -38,6 +38,21 @@ router.get('/me', requireUser, async (req, res, next) => {
   }
 });
 
+// GET /api/bookings/equipment/:equipmentId — public schedule for equipment
+router.get('/equipment/:equipmentId', async (req, res, next) => {
+  try {
+    const bookings = await Booking.find({
+      equipment: req.params.equipmentId,
+      status: { $in: ['pending', 'approved', 'active', 'overdue'] },
+    })
+      .populate('user', 'name email avatarUrl clerkId')
+      .sort({ startDate: 1 });
+    res.json(bookings);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/bookings/:id
 router.get('/:id', requireUser, async (req, res, next) => {
   try {
@@ -57,9 +72,18 @@ router.get('/:id', requireUser, async (req, res, next) => {
 // POST /api/bookings
 router.post('/', requireUser, async (req, res, next) => {
   try {
-    const { equipmentId, startDate, endDate, location } = req.body;
+    const { equipmentId, startDate, endDate, location, borrowerName, borrowerEmail } = req.body;
     if (!equipmentId || !startDate || !endDate) {
       return res.status(400).json({ error: 'equipmentId, startDate, endDate are required' });
+    }
+
+    // Sync borrower name to user profile if provided
+    if (borrowerName && (!req.dbUser.name || req.dbUser.name === 'Student Borrower' || req.dbUser.name !== borrowerName)) {
+      req.dbUser.name = borrowerName;
+      if (borrowerEmail && (!req.dbUser.email || req.dbUser.email.includes('placeholder.local'))) {
+        req.dbUser.email = borrowerEmail;
+      }
+      await req.dbUser.save();
     }
 
     const start = new Date(startDate);

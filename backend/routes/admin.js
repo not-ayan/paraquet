@@ -97,6 +97,8 @@ router.patch('/bookings/:id/approve', async (req, res, next) => {
     booking.status = 'approved';
     await booking.save();
 
+    await Equipment.findByIdAndUpdate(booking.equipment, { availability: 'booked' });
+
     await ActivityLog.create({
       user: booking.user,
       type: 'booking_approved',
