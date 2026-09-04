@@ -141,20 +141,21 @@ export const CommuneStore = {
     startDateTime: string;
     endDateTime: string;
     purpose: string;
+    equipmentName?: string;
+    equipmentImage?: string;
   }): { success: boolean; booking?: Booking; error?: string } {
     const equipment = this.getEquipmentById(data.equipmentId);
-    if (!equipment) return { success: false, error: 'Equipment not found.' };
-    if (equipment.approvalStatus !== 'APPROVED') return { success: false, error: 'Equipment is not approved for borrowing.' };
-    if (equipment.availabilityStatus !== 'AVAILABLE') return { success: false, error: 'Equipment is currently unavailable.' };
+    if (equipment && equipment.approvalStatus !== 'APPROVED') return { success: false, error: 'Equipment is not approved for borrowing.' };
+    if (equipment && equipment.availabilityStatus !== 'AVAILABLE') return { success: false, error: 'Equipment is currently unavailable.' };
 
     const user = this.getUser();
     const list = this.getAllBookings();
 
     const newBooking: Booking = {
       id: `bk-${Date.now().toString(36)}`,
-      equipmentId: equipment.id,
-      equipmentName: equipment.name,
-      equipmentImage: equipment.images[0] || '',
+      equipmentId: data.equipmentId,
+      equipmentName: equipment?.name || data.equipmentName || 'Campus Equipment',
+      equipmentImage: equipment?.images[0] || data.equipmentImage || '',
       borrowerId: user.clerkId,
       borrowerName: user.name,
       borrowerEmail: user.email,
@@ -173,7 +174,7 @@ export const CommuneStore = {
       action: 'BOOKING_CREATED',
       entityType: 'BOOKING',
       entityId: newBooking.id,
-      entityName: equipment.name,
+      entityName: newBooking.equipmentName,
     });
 
     return { success: true, booking: newBooking };

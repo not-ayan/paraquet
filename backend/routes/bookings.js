@@ -30,7 +30,7 @@ async function hasConflict(equipmentId, startDate, endDate, excludeBookingId) {
 router.get('/me', requireUser, async (req, res, next) => {
   try {
     const bookings = await Booking.find({ user: req.dbUser._id })
-      .populate('equipment')
+      .populate('equipment user')
       .sort({ createdAt: -1 });
     res.json(bookings);
   } catch (err) {
@@ -92,6 +92,8 @@ router.post('/', requireUser, async (req, res, next) => {
       equipment: equipmentId,
       message: `Requested ${equipment.name}`,
     });
+
+    await booking.populate('equipment user');
 
     res.status(201).json(booking);
   } catch (err) {

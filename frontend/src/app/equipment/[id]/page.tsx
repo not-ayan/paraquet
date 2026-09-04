@@ -92,6 +92,8 @@ export default function EquipmentDetailPage() {
       startDateTime,
       endDateTime,
       purpose,
+      equipmentName: equipment.name,
+      equipmentImage: equipment.images?.[0],
     });
 
     setIsSubmitting(false);

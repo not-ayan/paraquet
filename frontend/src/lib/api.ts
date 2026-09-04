@@ -43,10 +43,19 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   };
 
   try {
-    if (typeof window !== 'undefined' && (window as any).Clerk?.session) {
-      const token = await (window as any).Clerk.session.getToken();
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+    if (typeof window !== 'undefined') {
+      // If Clerk is still initializing on full reload, wait up to 1.5s
+      let attempts = 0;
+      while (!(window as any).Clerk?.loaded && attempts < 15) {
+        await new Promise((r) => setTimeout(r, 100));
+        attempts++;
+      }
+
+      if ((window as any).Clerk?.session) {
+        const token = await (window as any).Clerk.session.getToken();
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
       }
     }
   } catch (err) {
@@ -65,18 +74,20 @@ function adaptEquipment(raw: any): Equipment {
     ? raw.images 
     : [getFallbackImage(raw.name, raw.category)];
 
-  let conditionStatus = raw.condition?.status || raw.currentCondition || 'GOOD';
-  if (conditionStatus === 'good') conditionStatus = 'GOOD';
-  if (conditionStatus === 'fair') conditionStatus = 'FAIR';
-  if (conditionStatus === 'poor' || conditionStatus === 'under_repair') conditionStatus = 'DAMAGED';
+  const conditionMap: Record<string, 'EXCELLENT' | 'GOOD' | 'FAIR' | 'DAMAGED'> = {
+    new: 'EXCELLENT',
+    good: 'GOOD',
+    fair: 'FAIR',
+    maintenance: 'DAMAGED',
+  };
 
-  let approvalStatus = (raw.approvalStatus || 'APPROVED').toUpperCase();
-  let availabilityStatus = (raw.availability || raw.availabilityStatus || 'AVAILABLE').toUpperCase();
-  if (availabilityStatus === 'MAINTENANCE') availabilityStatus = 'MAINTENANCE';
+  const conditionStatus = conditionMap[raw.condition] || 'GOOD';
+  const approvalStatus = (raw.approvalStatus || 'approved').toUpperCase();
+  const availabilityStatus = (raw.availabilityStatus || 'available').toUpperCase();
 
   return {
     id,
-    name: raw.name || 'Equipment Item',
+    name: raw.name || 'Campus Equipment',
     description: raw.description || 'Quality campus equipment available for verified project borrowing.',
     category: raw.category || 'General',
     location: raw.location || 'Central Campus Lab',
@@ -102,11 +113,13 @@ function adaptBooking(raw: any): Booking {
   const eq = raw.equipment;
   const usr = raw.user;
 
-  const equipmentName = typeof eq === 'object' ? eq?.name : 'Equipment';
+  const equipmentName = (typeof eq === 'object' && eq?.name) 
+    ? eq.name 
+    : (raw.equipmentName || 'Equipment');
   const equipmentCategory = typeof eq === 'object' ? eq?.category : undefined;
   const equipmentImage = (typeof eq === 'object' && eq?.images?.[0]) 
     ? eq.images[0] 
-    : getFallbackImage(equipmentName, equipmentCategory);
+    : (raw.equipmentImage || getFallbackImage(equipmentName, equipmentCategory));
 
   const pickupReport: ConditionReport | undefined = raw.pickupCondition?.photos?.length ? {
     id: `pc-${id}`,
@@ -132,14 +145,18 @@ function adaptBooking(raw: any): Booking {
     aiConfidence: raw.returnCondition.aiSimilarityScore,
   } : undefined;
 
+  const borrowerId = typeof usr === 'object' ? usr?._id || usr?.id || usr?.clerkId : usr || 'me';
+  const borrowerName = typeof usr === 'object' ? usr?.name || 'Student Borrower' : (raw.borrowerName || 'Student Borrower');
+  const borrowerEmail = typeof usr === 'object' ? usr?.email || '' : (raw.borrowerEmail || '');
+
   return {
     id,
     equipmentId: typeof eq === 'object' ? eq?._id || eq?.id : eq,
     equipmentName,
     equipmentImage,
-    borrowerId: typeof usr === 'object' ? usr?._id || usr?.id : usr || 'me',
-    borrowerName: typeof usr === 'object' ? usr?.name || 'Student Borrower' : 'Student Borrower',
-    borrowerEmail: typeof usr === 'object' ? usr?.email || '' : '',
+    borrowerId,
+    borrowerName,
+    borrowerEmail,
     startDateTime: raw.startDate || raw.startDateTime || new Date().toISOString(),
     endDateTime: raw.endDate || raw.endDateTime || new Date().toISOString(),
     purpose: raw.location || raw.purpose || 'Campus Project',
@@ -278,9 +295,18 @@ export const apiClient = {
         if (Array.isArray(rawBookings)) {
           return rawBookings.map(adaptBooking);
         }
+      } else if (res.status === 401) {
+        // If user is signed into Clerk on frontend, don't fall back to stranger's mock bookings
+        if (typeof window !== 'undefined' && (window as any).Clerk?.user) {
+          return [];
+        }
       }
     } catch (err) {
       console.warn('API getMyBookings fallback:', err);
+    }
+    // Never show mock bookings if user is signed into Clerk
+    if (typeof window !== 'undefined' && (window as any).Clerk?.user) {
+      return [];
     }
     return CommuneStore.getUserBookings();
   },
@@ -290,6 +316,8 @@ export const apiClient = {
     startDateTime: string;
     endDateTime: string;
     purpose: string;
+    equipmentName?: string;
+    equipmentImage?: string;
   }): Promise<{ success: boolean; booking?: Booking; error?: string }> {
     try {
       const headers = await getAuthHeaders();
@@ -308,7 +336,14 @@ export const apiClient = {
 
       const json = await res.json();
       if (res.ok) {
-        return { success: true, booking: adaptBooking(json) };
+        const adapted = adaptBooking(json);
+        if (adapted.equipmentName === 'Equipment' && data.equipmentName) {
+          adapted.equipmentName = data.equipmentName;
+        }
+        if (data.equipmentImage && (!adapted.equipmentImage || adapted.equipmentImage.includes('unsplash.com/photo-1581092160607'))) {
+          adapted.equipmentImage = data.equipmentImage;
+        }
+        return { success: true, booking: adapted };
       } else {
         return { success: false, error: json.error || 'Failed to submit booking request.' };
       }

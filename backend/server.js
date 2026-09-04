@@ -13,7 +13,15 @@ const uploadRoutes = require('./routes/upload');
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-clerk-auth-token'],
+}));
 app.use(express.json());
 app.use(withClerk); // attaches req.auth on every request when a session token is present
 
