@@ -100,21 +100,21 @@ export default function DashboardPage() {
       
       {/* Profile Header */}
       <div className="card-paraquet p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="flex items-center gap-4 sm:gap-5">
+        <div className="flex items-center gap-4 sm:gap-5 min-w-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={user.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'}
             alt={user.name}
-            className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover"
+            className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover flex-shrink-0"
           />
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
+          <div className="space-y-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-fluid-h2 font-bold text-[#111110]">
                 {user.name}
               </h1>
               <span className="badge-pill badge-available text-fluid-micro">Verified Student</span>
             </div>
-            <p className="text-fluid-micro text-[#70706B]">
+            <p className="text-fluid-micro text-[#70706B] truncate">
               {user.email} • {user.department || 'Creative Media & Arts'} • ID: {user.studentId}
             </p>
             <p className="text-fluid-micro text-[#111110] font-medium">
@@ -123,7 +123,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-5 border-t md:border-t-0 md:border-l border-[#E2E2DE] pt-4 md:pt-0 md:pl-8">
+        <div className="flex items-center gap-5 border-t md:border-t-0 md:border-l border-[#E2E2DE] pt-4 md:pt-0 pl-0 md:pl-8 flex-shrink-0">
           <div>
             <span className="text-fluid-h2 font-bold text-[#111110] block">
               {bookings.filter(b => b.status === 'ACTIVE').length}
@@ -141,41 +141,41 @@ export default function DashboardPage() {
       </div>
 
       {/* Tab Pills */}
-      <div className="flex items-center gap-2 border-b border-[#E2E2DE] pb-3 overflow-x-auto">
+      <div className="flex items-center gap-2 border-b border-[#E2E2DE] pb-3 overflow-x-auto scrollbar-none">
         <button
           onClick={() => setActiveTab('bookings')}
-          className={`px-4 py-2 rounded-full text-fluid-body font-semibold transition-all flex items-center gap-2 ${
+          className={`px-4 py-2 rounded-full text-fluid-body font-semibold transition-all flex items-center gap-2 whitespace-nowrap ${
             activeTab === 'bookings'
               ? 'bg-[#111110] text-white shadow-sm'
               : 'bg-white text-[#70706B] hover:text-[#111110] border border-[#E2E2DE]'
           }`}
         >
-          <Calendar className="w-4 h-4" />
-          My Borrowing Requests ({bookings.length})
+          <Calendar className="w-4 h-4 flex-shrink-0" />
+          <span>My Borrowing Requests ({bookings.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab('equipment')}
-          className={`px-4 py-2 rounded-full text-fluid-body font-semibold transition-all flex items-center gap-2 ${
+          className={`px-4 py-2 rounded-full text-fluid-body font-semibold transition-all flex items-center gap-2 whitespace-nowrap ${
             activeTab === 'equipment'
               ? 'bg-[#111110] text-white shadow-sm'
               : 'bg-white text-[#70706B] hover:text-[#111110] border border-[#E2E2DE]'
           }`}
         >
-          <Package className="w-4 h-4" />
-          My Listed Gear ({myEquipment.length})
+          <Package className="w-4 h-4 flex-shrink-0" />
+          <span>My Listed Gear ({myEquipment.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab('activity')}
-          className={`px-4 py-2 rounded-full text-fluid-body font-semibold transition-all flex items-center gap-2 ${
+          className={`px-4 py-2 rounded-full text-fluid-body font-semibold transition-all flex items-center gap-2 whitespace-nowrap ${
             activeTab === 'activity'
               ? 'bg-[#111110] text-white shadow-sm'
               : 'bg-white text-[#70706B] hover:text-[#111110] border border-[#E2E2DE]'
           }`}
         >
-          <Activity className="w-4 h-4" />
-          Audit Stream ({activity.length})
+          <Activity className="w-4 h-4 flex-shrink-0" />
+          <span>Audit Stream ({activity.length})</span>
         </button>
       </div>
 
@@ -191,30 +191,30 @@ export default function DashboardPage() {
                 <div key={b.id} className="card-paraquet p-5 sm:p-6 space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 min-w-0 flex-1">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={b.equipmentImage}
                         alt={b.equipmentName}
-                        className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover bg-[#EDEDEA]"
+                        className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover bg-[#EDEDEA] flex-shrink-0"
                       />
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-2 mb-1">
+                      <div className="space-y-0.5 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
                           {getStatusBadge(b.status)}
                           <span className="text-fluid-micro text-[#70706B]">Ref: {b.id}</span>
                         </div>
-                        <h3 className="text-fluid-h3 font-bold text-[#111110]">
+                        <h3 className="text-fluid-h3 font-bold text-[#111110] truncate">
                           {b.equipmentName}
                         </h3>
-                        <p className="text-fluid-micro text-[#70706B] flex items-center gap-1">
-                          <Calendar className="w-3.5 h-3.5" />
-                          Duration: {start} – {end}
+                        <p className="text-fluid-micro text-[#70706B] flex items-center gap-1 truncate">
+                          <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span>Duration: {start} – {end}</span>
                         </p>
                       </div>
                     </div>
 
                     {/* Actions */}
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 sm:self-center self-start flex-shrink-0">
                       {b.status === 'APPROVED' && (
                         <button
                           onClick={() => handleOpenConditionModal(b, 'PICKUP')}

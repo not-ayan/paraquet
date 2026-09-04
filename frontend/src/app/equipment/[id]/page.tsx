@@ -203,26 +203,26 @@ export default function EquipmentDetailPage() {
           </div>
 
           {/* Steward Card */}
-          <div className="card-paraquet p-5 flex items-center justify-between">
-            <div className="flex items-center gap-3.5">
+          <div className="card-paraquet p-5 flex flex-wrap sm:flex-nowrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5 min-w-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={equipment.ownerAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'}
                 alt={equipment.ownerName}
-                className="w-12 h-12 rounded-full object-cover"
+                className="w-12 h-12 rounded-full object-cover flex-shrink-0"
               />
-              <div>
+              <div className="min-w-0">
                 <span className="text-fluid-micro text-[#70706B] block">Equipment Steward</span>
-                <h4 className="text-fluid-body font-bold text-[#111110]">
+                <h4 className="text-fluid-body font-bold text-[#111110] truncate">
                   {equipment.ownerName}
                 </h4>
                 <span className="text-fluid-micro text-[#1B7A42] font-semibold flex items-center gap-1 mt-0.5">
-                  <UserCheck className="w-3.5 h-3.5" /> Verified Community Lender
+                  <UserCheck className="w-3.5 h-3.5 flex-shrink-0" /> Verified Community Lender
                 </span>
               </div>
             </div>
 
-            <div className="text-right text-fluid-micro text-[#70706B]">
+            <div className="text-left sm:text-right text-fluid-micro text-[#70706B] flex-shrink-0">
               <span className="block font-medium">Condition</span>
               <span className="badge-pill badge-available mt-1">
                 {equipment.currentCondition}
@@ -272,7 +272,7 @@ export default function EquipmentDetailPage() {
               <form onSubmit={handleBookingSubmit} className="space-y-4 pt-1">
                 
                 {/* Dates */}
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <label className="block text-fluid-micro uppercase font-bold tracking-wider text-[#70706B]">
                     Pickup Date & Time
                   </label>
@@ -281,20 +281,20 @@ export default function EquipmentDetailPage() {
                       type="date"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="input-paraquet text-fluid-body"
+                      className="input-paraquet input-date-time text-xs sm:text-sm"
                       required
                     />
                     <input
                       type="time"
                       value={startTime}
                       onChange={(e) => setStartTime(e.target.value)}
-                      className="input-paraquet text-fluid-body"
+                      className="input-paraquet input-date-time text-xs sm:text-sm"
                       required
                     />
                   </div>
                 </div>
 
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <label className="block text-fluid-micro uppercase font-bold tracking-wider text-[#70706B]">
                     Return Date & Time
                   </label>
@@ -303,21 +303,21 @@ export default function EquipmentDetailPage() {
                       type="date"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      className="input-paraquet text-fluid-body"
+                      className="input-paraquet input-date-time text-xs sm:text-sm"
                       required
                     />
                     <input
                       type="time"
                       value={endTime}
                       onChange={(e) => setEndTime(e.target.value)}
-                      className="input-paraquet text-fluid-body"
+                      className="input-paraquet input-date-time text-xs sm:text-sm"
                       required
                     />
                   </div>
                 </div>
 
                 {/* Purpose */}
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <label className="block text-fluid-micro uppercase font-bold tracking-wider text-[#70706B]">
                     Academic / Project Purpose
                   </label>
@@ -342,7 +342,9 @@ export default function EquipmentDetailPage() {
                   type="submit"
                   disabled={isSubmitting || !isAvailable}
                   className={`w-full py-3 ${
-                    isAvailable ? 'btn-primary' : 'bg-[#E2E2DE] text-[#9C9C96] cursor-not-allowed rounded-full font-semibold text-fluid-body'
+                    isAvailable
+                      ? 'btn-primary'
+                      : 'inline-flex items-center justify-center bg-[#E2E2DE] text-[#9C9C96] cursor-not-allowed rounded-full font-semibold text-fluid-body'
                   }`}
                 >
                   {isSubmitting ? 'Submitting Request...' : isAvailable ? 'Submit Reservation Request →' : 'Unavailable for Booking'}

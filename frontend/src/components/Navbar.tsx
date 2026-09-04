@@ -56,7 +56,7 @@ export default function Navbar() {
             </span>
           </Link>
 
-          <div className="hidden sm:flex items-center gap-2 pl-4 border-l border-[#E2E2DE] text-fluid-micro text-[#70706B]">
+          <div className="hidden lg:flex items-center gap-2 pl-4 border-l border-[#E2E2DE] text-fluid-micro text-[#70706B]">
             <span className="w-2 h-2 rounded-full bg-[#1B7A42] animate-pulse" />
             <span><strong>{equipmentCount}</strong> items ready for loan</span>
           </div>

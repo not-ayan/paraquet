@@ -109,7 +109,7 @@ export default function EquipmentCataloguePage() {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="space-y-3">
+      <div className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
           
           {/* Search Input */}
@@ -120,7 +120,7 @@ export default function EquipmentCataloguePage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search equipment by name, keywords, or campus room..."
-              className="input-paraquet pl-10 pr-4"
+              className="input-paraquet pl-10 pr-4 h-[46px]"
             />
           </div>
 
@@ -128,7 +128,7 @@ export default function EquipmentCataloguePage() {
           <div className="md:col-span-3 flex items-center">
             <button
               onClick={() => setOnlyAvailable(!onlyAvailable)}
-              className={`w-full py-2.5 px-4 rounded-xl text-fluid-body font-semibold transition-all border flex items-center justify-center gap-2 ${
+              className={`w-full h-[46px] px-4 rounded-xl text-fluid-body font-semibold transition-all border flex items-center justify-center gap-2 ${
                 onlyAvailable
                   ? 'bg-[#111110] text-white border-[#111110] shadow-sm'
                   : 'bg-white text-[#111110] border-[#E2E2DE] hover:border-[#111110]'
@@ -144,7 +144,7 @@ export default function EquipmentCataloguePage() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as 'newest' | 'name')}
-              className="input-paraquet text-fluid-body font-medium cursor-pointer"
+              className="input-paraquet h-[46px] text-fluid-body font-medium cursor-pointer"
             >
               <option value="newest">Sort: Recently Added</option>
               <option value="name">Sort: Name (A-Z)</option>
@@ -154,7 +154,7 @@ export default function EquipmentCataloguePage() {
         </div>
 
         {/* Category Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none pt-1">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none pt-0.5">
           {categories.map((cat) => {
             const isSelected = selectedCategory === cat.label;
             return (
@@ -172,28 +172,28 @@ export default function EquipmentCataloguePage() {
             );
           })}
         </div>
-      </div>
 
-      {/* Results Count & Clear */}
-      <div className="flex items-center justify-between text-fluid-micro text-[#70706B]">
-        <span>
-          Showing <strong>{filtered.length}</strong> items
-          {selectedCategory !== 'All' && ` in "${selectedCategory}"`}
-          {onlyAvailable && ' (Available Only)'}
-        </span>
+        {/* Results Count & Clear */}
+        <div className="flex items-center justify-between text-fluid-micro text-[#70706B] pt-1">
+          <span>
+            Showing <strong>{filtered.length}</strong> items
+            {selectedCategory !== 'All' && ` in "${selectedCategory}"`}
+            {onlyAvailable && ' (Available Only)'}
+          </span>
 
-        {(search || selectedCategory !== 'All' || onlyAvailable) && (
-          <button
-            onClick={() => {
-              setSearch('');
-              setSelectedCategory('All');
-              setOnlyAvailable(false);
-            }}
-            className="flex items-center gap-1 text-[#111110] hover:underline font-semibold"
-          >
-            <RotateCcw className="w-3 h-3" /> Reset Filters
-          </button>
-        )}
+          {(search || selectedCategory !== 'All' || onlyAvailable) && (
+            <button
+              onClick={() => {
+                setSearch('');
+                setSelectedCategory('All');
+                setOnlyAvailable(false);
+              }}
+              className="flex items-center gap-1 text-[#111110] hover:underline font-semibold"
+            >
+              <RotateCcw className="w-3 h-3" /> Reset Filters
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Grid */}

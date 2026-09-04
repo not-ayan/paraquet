@@ -141,14 +141,16 @@ a {
   gap: 8px;
   background-color: #111110;
   color: #FFFFFF;
-  padding: 10px 22px;
+  padding: 10px 20px;
   border-radius: 9999px;
   font-family: var(--font-aspekta);
   font-weight: 600;
   font-size: var(--text-body);
+  line-height: 1.25;
   border: 1px solid transparent;
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .btn-primary:hover {
@@ -169,8 +171,10 @@ a {
   font-family: var(--font-aspekta);
   font-weight: 550;
   font-size: var(--text-body);
+  line-height: 1.25;
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .btn-secondary:hover {
@@ -198,6 +202,12 @@ a {
   box-shadow: 0 0 0 2px rgba(17, 17, 16, 0.08);
 }
 
+/* Compact date/time inputs for narrow grid cells */
+.input-date-time {
+  padding-left: 10px;
+  padding-right: 8px;
+}
+
 /* Minimal Frosted Pill Badge */
 .badge-pill {
   display: inline-flex;
@@ -207,6 +217,8 @@ a {
   border-radius: 9999px;
   font-size: var(--text-micro);
   font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
 }
 
 .badge-available {

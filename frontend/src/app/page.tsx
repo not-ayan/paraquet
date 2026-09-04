@@ -60,10 +60,10 @@ export default function HomePage() {
       }).slice(0, 6);
 
   return (
-    <div className="space-y-16 sm:space-y-24 pb-16">
+    <div className="flex flex-col">
       
       {/* 1. HERO SECTION (Minimalist Curation Hero) */}
-      <section className="pt-8 sm:pt-14">
+      <section className="pt-8 sm:pt-14 pb-12 sm:pb-16">
         <div className="container-custom">
           
           <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 pb-10 border-b border-[#E2E2DE]">
@@ -94,7 +94,7 @@ export default function HomePage() {
           </div>
 
           {/* Quick Metrics Strip */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 pt-6 text-fluid-body">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 pt-8 text-fluid-body">
             <div>
               <span className="text-fluid-h2 font-bold text-[#111110] block">
                 {equipmentList.length}+
@@ -125,7 +125,7 @@ export default function HomePage() {
       </section>
 
       {/* 2. CURATED CATALOG GRID */}
-      <section>
+      <section className="py-12 sm:py-16">
         <div className="container-custom space-y-6">
           
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -174,7 +174,7 @@ export default function HomePage() {
       </section>
 
       {/* 3. HOW IT WORKS / STEWARDSHIP ARCHITECTURE */}
-      <section className="bg-[#EDEDEA]/70 py-16 border-y border-[#E2E2DE]">
+      <section className="bg-[#EDEDEA]/70 py-16 sm:py-20 border-y border-[#E2E2DE]">
         <div className="container-custom space-y-12">
           
           <div className="max-w-2xl space-y-2">
@@ -227,7 +227,7 @@ export default function HomePage() {
       </section>
 
       {/* 4. LISTING CALL TO ACTION BANNER */}
-      <section className="container-custom">
+      <section className="container-custom py-16 sm:py-20">
         <div className="card-paraquet bg-[#111110] text-white p-8 sm:p-14 flex flex-col md:flex-row md:items-center justify-between gap-8">
           <div className="space-y-3 max-w-xl">
             <span className="text-fluid-micro uppercase tracking-wider text-[#9C9C96] font-semibold">
