@@ -254,6 +254,18 @@ export const CommuneStore = {
       entityType: 'CONDITION_REPORT',
       entityId: report.id,
       entityName: `${list[idx].equipmentName} (${data.type})`,
+      equipmentImage: list[idx].equipmentImage,
+      message: `${data.type === 'PICKUP' ? 'Pickup' : 'Return'} inspection recorded (${data.condition})`,
+      conditionReport: {
+        type: data.type,
+        condition: data.condition,
+        photos: [data.photoUrl],
+        notes: data.notes,
+        aiFlagged: data.condition === 'DAMAGED',
+        aiSimilarityScore: data.condition === 'DAMAGED' ? 0.62 : 0.98,
+        recordedAt: report.reportedAt,
+        recordedBy: user.name,
+      },
     });
 
     return report;

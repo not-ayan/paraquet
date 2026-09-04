@@ -69,6 +69,7 @@ export interface ActivityLog {
   id: string;
   userId: string;
   userName: string;
+  userAvatar?: string;
   action: 
     | 'EQUIPMENT_CREATED'
     | 'EQUIPMENT_APPROVED'
@@ -78,11 +79,26 @@ export interface ActivityLog {
     | 'BOOKING_REJECTED'
     | 'BOOKING_CANCELLED'
     | 'PICKUP_REPORTED'
-    | 'RETURN_REPORTED';
+    | 'RETURN_REPORTED'
+    | 'CONDITION_FLAGGED'
+    | string;
   entityType: 'EQUIPMENT' | 'BOOKING' | 'CONDITION_REPORT';
   entityId: string;
   entityName: string;
+  equipmentImage?: string;
+  equipmentCategory?: string;
+  message?: string;
   createdAt: string;
+  conditionReport?: {
+    type: 'PICKUP' | 'RETURN' | 'INSPECTION';
+    condition: ConditionGrade;
+    photos: string[];
+    notes?: string;
+    aiFlagged?: boolean;
+    aiSimilarityScore?: number;
+    recordedAt?: string;
+    recordedBy?: string;
+  };
 }
 
 export interface UserProfile {

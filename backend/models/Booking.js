@@ -9,6 +9,11 @@ const conditionRecordSchema = new Schema(
   {
     photos: [{ type: String }], // storage URLs, 1+ required when recorded
     notes: { type: String },
+    condition: {
+      type: String,
+      enum: ['excellent', 'good', 'fair', 'poor', 'damaged', 'under_repair'],
+      default: 'good',
+    },
     // Filled in by the AI similarity check once both pickup and return
     // photos exist — compares the two, not a single photo.
     aiSimilarityScore: { type: Number, min: 0, max: 1 },

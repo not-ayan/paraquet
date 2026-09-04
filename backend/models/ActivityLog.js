@@ -24,12 +24,26 @@ const activityLogSchema = new Schema(
       required: true,
     },
     booking: { type: Schema.Types.ObjectId, ref: 'Booking' },
-    equipment: { type: Schema.Types.ObjectId, ref: 'Equipment' },
+    equipment: { type: Schema.Types.ObjectId, ref: 'Equipment', index: true },
     message: { type: String }, // short human-readable line for the activity feed
+    conditionReport: {
+      type: { type: String, enum: ['pickup', 'return', 'inspection'] },
+      condition: {
+        type: String,
+        enum: ['excellent', 'good', 'fair', 'poor', 'damaged', 'under_repair'],
+        default: 'good',
+      },
+      photos: [{ type: String }],
+      notes: { type: String },
+      aiSimilarityScore: { type: Number },
+      aiFlagged: { type: Boolean, default: false },
+      recordedAt: { type: Date, default: Date.now },
+    },
   },
   { timestamps: true }
 );
 
 activityLogSchema.index({ user: 1, createdAt: -1 });
+activityLogSchema.index({ equipment: 1, createdAt: -1 });
 
 module.exports = model('ActivityLog', activityLogSchema);

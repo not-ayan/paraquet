@@ -179,6 +179,80 @@ function adaptBooking(raw: any): Booking {
   };
 }
 
+function adaptActivityLog(a: any): ActivityLog {
+  const eq = typeof a.equipment === 'object' && a.equipment ? a.equipment : null;
+  const bk = typeof a.booking === 'object' && a.booking ? a.booking : null;
+  const usr = typeof a.user === 'object' && a.user ? a.user : null;
+
+  const entityName = eq?.name || bk?.equipment?.name || a.message || 'Equipment Item';
+  const equipmentImage = eq?.images?.[0] || bk?.equipment?.images?.[0] || undefined;
+  const equipmentCategory = eq?.category || bk?.equipment?.category || undefined;
+  const userName = usr?.name && usr.name !== 'Student Borrower' ? usr.name : (bk?.borrowerName || 'Campus Borrower');
+
+  let conditionReport: ActivityLog['conditionReport'] = undefined;
+
+  if (a.conditionReport && (a.conditionReport.photos?.length > 0 || a.conditionReport.condition || a.conditionReport.notes)) {
+    const rawCond = a.conditionReport;
+    const gradeUpper = (rawCond.condition || 'GOOD').toUpperCase() as any;
+    const typeUpper = (rawCond.type || (a.type?.includes('pickup') ? 'PICKUP' : 'RETURN')).toUpperCase() as any;
+
+    conditionReport = {
+      type: typeUpper,
+      condition: ['EXCELLENT', 'GOOD', 'FAIR', 'DAMAGED'].includes(gradeUpper) ? gradeUpper : 'GOOD',
+      photos: Array.isArray(rawCond.photos) ? rawCond.photos : [],
+      notes: rawCond.notes || undefined,
+      aiFlagged: Boolean(rawCond.aiFlagged),
+      aiSimilarityScore: typeof rawCond.aiSimilarityScore === 'number' ? rawCond.aiSimilarityScore : undefined,
+      recordedAt: rawCond.recordedAt || a.createdAt,
+      recordedBy: userName,
+    };
+  } else if (bk) {
+    if (a.type === 'pickup_recorded' && bk.pickupCondition) {
+      const pc = bk.pickupCondition;
+      const grade = (pc.condition || 'GOOD').toUpperCase() as any;
+      conditionReport = {
+        type: 'PICKUP',
+        condition: ['EXCELLENT', 'GOOD', 'FAIR', 'DAMAGED'].includes(grade) ? grade : 'GOOD',
+        photos: Array.isArray(pc.photos) ? pc.photos : [],
+        notes: pc.notes || undefined,
+        aiFlagged: Boolean(pc.aiFlagged),
+        aiSimilarityScore: typeof pc.aiSimilarityScore === 'number' ? pc.aiSimilarityScore : undefined,
+        recordedAt: pc.recordedAt || a.createdAt,
+        recordedBy: userName,
+      };
+    } else if ((a.type === 'return_recorded' || a.type === 'condition_flagged') && bk.returnCondition) {
+      const rc = bk.returnCondition;
+      const grade = (rc.condition || (rc.aiFlagged ? 'DAMAGED' : 'GOOD')).toUpperCase() as any;
+      conditionReport = {
+        type: 'RETURN',
+        condition: ['EXCELLENT', 'GOOD', 'FAIR', 'DAMAGED'].includes(grade) ? grade : 'GOOD',
+        photos: Array.isArray(rc.photos) ? rc.photos : [],
+        notes: rc.notes || undefined,
+        aiFlagged: Boolean(rc.aiFlagged),
+        aiSimilarityScore: typeof rc.aiSimilarityScore === 'number' ? rc.aiSimilarityScore : undefined,
+        recordedAt: rc.recordedAt || a.createdAt,
+        recordedBy: userName,
+      };
+    }
+  }
+
+  return {
+    id: a._id || a.id,
+    userId: usr?._id || usr?.clerkId || (typeof a.user === 'string' ? a.user : 'user'),
+    userName,
+    userAvatar: usr?.avatarUrl || undefined,
+    action: (a.type || 'BOOKING_CREATED').toUpperCase(),
+    entityType: a.type?.includes('condition') || conditionReport ? 'CONDITION_REPORT' : eq ? 'EQUIPMENT' : 'BOOKING',
+    entityId: eq?._id || bk?._id || (typeof a.equipment === 'string' ? a.equipment : typeof a.booking === 'string' ? a.booking : a._id),
+    entityName,
+    equipmentImage,
+    equipmentCategory,
+    message: a.message || undefined,
+    createdAt: a.createdAt || new Date().toISOString(),
+    conditionReport,
+  };
+}
+
 export const apiClient = {
   // 1. User Profile
   async getProfile(): Promise<UserProfile> {
@@ -411,6 +485,7 @@ export const apiClient = {
       const payload = {
         photos: [data.photoUrl],
         notes: data.notes || '',
+        condition: data.condition,
       };
 
       const res = await fetch(`${API_BASE}/bookings/${bookingId}/pickup-condition`, {
@@ -439,6 +514,7 @@ export const apiClient = {
       const payload = {
         photos: [data.photoUrl],
         notes: data.notes || '',
+        condition: data.condition,
       };
 
       const res = await fetch(`${API_BASE}/bookings/${bookingId}/return-condition`, {
@@ -458,7 +534,7 @@ export const apiClient = {
     return CommuneStore.submitConditionReport({ bookingId, type: 'RETURN', ...data });
   },
 
-  // 5. Activity Stream
+  // 5. Activity Stream & Condition History
   async getMyActivity(): Promise<ActivityLog[]> {
     try {
       const headers = await getAuthHeaders();
@@ -466,22 +542,28 @@ export const apiClient = {
       if (res.ok) {
         const raw = await res.json();
         if (Array.isArray(raw)) {
-          return raw.map((a: any) => ({
-            id: a._id || a.id,
-            userId: a.user || 'user',
-            userName: 'You',
-            action: (a.type || 'BOOKING_CREATED').toUpperCase() as any,
-            entityType: a.equipment ? 'EQUIPMENT' : 'BOOKING',
-            entityId: a.equipment || a.booking || a._id,
-            entityName: a.message || 'System Action',
-            createdAt: a.createdAt || new Date().toISOString(),
-          }));
+          return raw.map((a: any) => adaptActivityLog(a));
         }
       }
     } catch (err) {
       console.warn('API getMyActivity fallback:', err);
     }
     return CommuneStore.getUserActivity();
+  },
+
+  async getEquipmentActivity(equipmentId: string): Promise<ActivityLog[]> {
+    try {
+      const res = await fetch(`${API_BASE}/activity/equipment/${equipmentId}`);
+      if (res.ok) {
+        const raw = await res.json();
+        if (Array.isArray(raw)) {
+          return raw.map((a: any) => adaptActivityLog(a));
+        }
+      }
+    } catch (err) {
+      console.warn('API getEquipmentActivity fallback:', err);
+    }
+    return CommuneStore.getActivity().filter(a => a.entityId === equipmentId);
   },
 
   // 6. Cloudinary Direct Upload

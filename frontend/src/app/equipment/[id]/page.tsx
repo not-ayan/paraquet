@@ -10,11 +10,14 @@ import {
   CheckCircle2, 
   AlertCircle,
   AlertTriangle,
-  UserCheck
+  UserCheck,
+  Camera,
+  ZoomIn,
+  X
 } from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
 import { apiClient } from '@/lib/api';
-import { Equipment, Booking } from '@/lib/types';
+import { Equipment, Booking, ActivityLog } from '@/lib/types';
 import AvailabilityCalendar from '@/components/AvailabilityCalendar';
 
 export default function EquipmentDetailPage() {
@@ -25,6 +28,8 @@ export default function EquipmentDetailPage() {
 
   const [equipment, setEquipment] = useState<Equipment | null>(null);
   const [equipmentBookings, setEquipmentBookings] = useState<Booking[]>([]);
+  const [equipmentActivity, setEquipmentActivity] = useState<ActivityLog[]>([]);
+  const [selectedPhotoPreview, setSelectedPhotoPreview] = useState<{ url: string; title: string } | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   // Booking Form State
@@ -74,6 +79,15 @@ export default function EquipmentDetailPage() {
         })
         .catch((err) => {
           console.warn('Error loading equipment bookings:', err);
+        });
+
+      // Fetch condition history & activity for this equipment
+      apiClient.getEquipmentActivity(id)
+        .then((acts) => {
+          if (isMounted) setEquipmentActivity(acts);
+        })
+        .catch((err) => {
+          console.warn('Error loading equipment activity:', err);
         });
 
       return () => {
@@ -291,6 +305,87 @@ export default function EquipmentDetailPage() {
             }}
             maxBorrowDays={equipment.maxBorrowDays || 3}
           />
+
+          {/* Condition History & Handover Evidence */}
+          {equipmentActivity.filter(a => Boolean(a.conditionReport)).length > 0 && (
+            <div className="card-paraquet p-6 sm:p-8 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Camera className="w-5 h-5 text-[#111110]" />
+                    <h3 className="text-fluid-h3 font-bold text-[#111110]">
+                      Condition History & Inspection Evidence
+                    </h3>
+                  </div>
+                  <p className="text-fluid-micro text-[#70706B]">
+                    Visual condition records uploaded during student pickups and returns.
+                  </p>
+                </div>
+                <span className="badge-pill badge-available">
+                  {equipmentActivity.filter(a => Boolean(a.conditionReport)).length} Reports
+                </span>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                {equipmentActivity
+                  .filter(a => Boolean(a.conditionReport))
+                  .map((act) => {
+                    const cr = act.conditionReport!;
+                    const dateFormatted = new Date(act.createdAt).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    });
+
+                    return (
+                      <div key={act.id} className="p-4 bg-[#F9F9F8] border border-[#EDEDEA] rounded-2xl space-y-3">
+                        <div className="flex items-center justify-between flex-wrap gap-2 text-fluid-micro">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-[#111110]">
+                              {cr.type === 'PICKUP' ? '📸 Pickup Check' : '🔄 Return Check'}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              cr.condition === 'EXCELLENT' ? 'bg-[#E8F5EB] text-[#1B7A42]' :
+                              cr.condition === 'GOOD' ? 'bg-[#EFF6FF] text-[#1E40AF]' :
+                              cr.condition === 'FAIR' ? 'bg-[#FEF9C3] text-[#854D0E]' :
+                              'bg-[#FEE2E2] text-[#991B1B]'
+                            }`}>
+                              {cr.condition}
+                            </span>
+                          </div>
+                          <span className="text-[#70706B]">{dateFormatted}</span>
+                        </div>
+
+                        {cr.notes && (
+                          <p className="text-fluid-micro text-[#70706B] italic">
+                            "{cr.notes}"
+                          </p>
+                        )}
+
+                        {cr.photos && cr.photos.length > 0 && (
+                          <div className="flex items-center gap-2 pt-1">
+                            {cr.photos.map((photo, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => setSelectedPhotoPreview({ url: photo, title: `${equipment.name} (${cr.type})` })}
+                                className="relative group w-14 h-14 rounded-xl overflow-hidden border border-[#E2E2DE] hover:border-[#111110] transition-all flex-shrink-0"
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={photo} alt="condition" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
+                                  <ZoomIn className="w-4 h-4" />
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
 
           {/* Steward Card */}
           <div className="card-paraquet p-5 flex flex-wrap sm:flex-nowrap items-center justify-between gap-4">
@@ -513,6 +608,46 @@ export default function EquipmentDetailPage() {
         </div>
 
       </div>
+
+      {/* Condition Photo Lightbox Modal */}
+      {selectedPhotoPreview && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150"
+          onClick={() => setSelectedPhotoPreview(null)}
+        >
+          <div 
+            className="relative max-w-2xl w-full bg-[#111110] rounded-3xl overflow-hidden border border-white/20 shadow-2xl p-4 sm:p-5 space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between text-white px-1">
+              <div className="flex items-center gap-2 min-w-0">
+                <Camera className="w-4 h-4 text-white/80 flex-shrink-0" />
+                <span className="font-bold text-fluid-body truncate">{selectedPhotoPreview.title}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedPhotoPreview(null)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors flex-shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-black flex items-center justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img 
+                src={selectedPhotoPreview.url} 
+                alt={selectedPhotoPreview.title}
+                className="w-full h-full object-contain"
+              />
+            </div>
+
+            <p className="text-center text-fluid-micro text-white/70">
+              Verified condition handover proof • Click background or close button to exit
+            </p>
+          </div>
+        </div>
+      )}
 
     </div>
   );
