@@ -14,16 +14,32 @@ import {
   Compass,
   ArrowRight
 } from 'lucide-react';
-import { CommuneStore } from '@/lib/store';
+import { apiClient } from '@/lib/api';
 import { Equipment } from '@/lib/types';
 import EquipmentCard from '@/components/EquipmentCard';
 
 export default function HomePage() {
   const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    setEquipmentList(CommuneStore.getAllEquipment());
+    let isMounted = true;
+    apiClient.getEquipment()
+      .then((data) => {
+        if (isMounted) {
+          setEquipmentList(data);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to fetch home equipment:', err);
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const categories = [
@@ -37,7 +53,11 @@ export default function HomePage() {
 
   const filteredEquipment = selectedCategory === 'All' 
     ? equipmentList.slice(0, 6)
-    : equipmentList.filter(e => e.category === selectedCategory).slice(0, 6);
+    : equipmentList.filter(e => {
+        const cat = (e.category || '').toLowerCase();
+        const sel = selectedCategory.toLowerCase();
+        return cat.includes(sel) || sel.includes(cat);
+      }).slice(0, 6);
 
   return (
     <div className="space-y-16 sm:space-y-24 pb-16">

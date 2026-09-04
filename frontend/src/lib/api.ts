@@ -1,70 +1,288 @@
 import { CommuneStore } from './store';
 import { Equipment, Booking, ConditionReport, ActivityLog, UserProfile, EquipmentCategory } from './types';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL;
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
-// Forward token or fall back to client store for rich hackathon experience
+/**
+ * Aesthetic fallback images for seeded/uploaded items that lack photos
+ */
+export function getFallbackImage(name?: string, category?: string): string {
+  const n = (name || '').toLowerCase();
+  const c = (category || '').toLowerCase();
+
+  if (n.includes('camera') || n.includes('dslr') || c.includes('camera') || c.includes('photo')) {
+    return 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1200&q=80';
+  }
+  if (n.includes('projector') || c.includes('display') || c.includes('projector')) {
+    return 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?auto=format&fit=crop&w=1200&q=80';
+  }
+  if (n.includes('tent') || n.includes('outdoor') || c.includes('outdoor')) {
+    return 'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&w=1200&q=80';
+  }
+  if (n.includes('speaker') || n.includes('audio') || n.includes('mic') || c.includes('audio')) {
+    return 'https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=1200&q=80';
+  }
+  if (n.includes('drill') || n.includes('tool') || c.includes('tool') || c.includes('workshop')) {
+    return 'https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&w=1200&q=80';
+  }
+  if (n.includes('racket') || n.includes('badminton') || n.includes('sport') || c.includes('sport')) {
+    return 'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?auto=format&fit=crop&w=1200&q=80';
+  }
+  if (n.includes('laptop') || c.includes('computing')) {
+    return 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=1200&q=80';
+  }
+  return 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=1200&q=80';
+}
+
+/**
+ * Clerk Token Helper for authenticated requests to Express backend
+ */
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  try {
+    if (typeof window !== 'undefined' && (window as any).Clerk?.session) {
+      const token = await (window as any).Clerk.session.getToken();
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+    }
+  } catch (err) {
+    console.warn('Could not fetch Clerk session token', err);
+  }
+
+  return headers;
+}
+
+/**
+ * Adapter: Backend Equipment document -> Frontend Equipment
+ */
+function adaptEquipment(raw: any): Equipment {
+  const id = raw._id || raw.id;
+  const images = (raw.images && raw.images.length > 0 && raw.images[0]) 
+    ? raw.images 
+    : [getFallbackImage(raw.name, raw.category)];
+
+  let conditionStatus = raw.condition?.status || raw.currentCondition || 'GOOD';
+  if (conditionStatus === 'good') conditionStatus = 'GOOD';
+  if (conditionStatus === 'fair') conditionStatus = 'FAIR';
+  if (conditionStatus === 'poor' || conditionStatus === 'under_repair') conditionStatus = 'DAMAGED';
+
+  let approvalStatus = (raw.approvalStatus || 'APPROVED').toUpperCase();
+  let availabilityStatus = (raw.availability || raw.availabilityStatus || 'AVAILABLE').toUpperCase();
+  if (availabilityStatus === 'MAINTENANCE') availabilityStatus = 'MAINTENANCE';
+
+  return {
+    id,
+    name: raw.name || 'Equipment Item',
+    description: raw.description || 'Quality campus equipment available for verified project borrowing.',
+    category: raw.category || 'General',
+    location: raw.location || 'Central Campus Lab',
+    ownerId: raw.addedBy?._id || raw.addedBy || 'steward',
+    ownerName: raw.addedBy?.name || 'Campus Steward',
+    ownerAvatar: raw.addedBy?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+    images,
+    currentCondition: conditionStatus as any,
+    approvalStatus: approvalStatus as any,
+    availabilityStatus: availabilityStatus as any,
+    specs: raw.specs || (raw.tags ? { Tags: raw.tags.join(', ') } : undefined),
+    createdAt: raw.createdAt || new Date().toISOString(),
+    depositAmount: raw.depositAmount || 0,
+    maxBorrowDays: raw.maxBorrowDays || 3,
+  };
+}
+
+/**
+ * Adapter: Backend Booking document -> Frontend Booking
+ */
+function adaptBooking(raw: any): Booking {
+  const id = raw._id || raw.id;
+  const eq = raw.equipment;
+  const usr = raw.user;
+
+  const equipmentName = typeof eq === 'object' ? eq?.name : 'Equipment';
+  const equipmentCategory = typeof eq === 'object' ? eq?.category : undefined;
+  const equipmentImage = (typeof eq === 'object' && eq?.images?.[0]) 
+    ? eq.images[0] 
+    : getFallbackImage(equipmentName, equipmentCategory);
+
+  const pickupReport: ConditionReport | undefined = raw.pickupCondition?.photos?.length ? {
+    id: `pc-${id}`,
+    bookingId: id,
+    type: 'PICKUP',
+    condition: (raw.pickupCondition.condition || 'GOOD').toUpperCase() as any,
+    photoUrl: raw.pickupCondition.photos[0],
+    notes: raw.pickupCondition.notes,
+    reportedAt: raw.pickupCondition.recordedAt || new Date().toISOString(),
+    reportedBy: raw.pickupCondition.recordedBy || 'borrower',
+  } : undefined;
+
+  const returnReport: ConditionReport | undefined = raw.returnCondition?.photos?.length ? {
+    id: `rc-${id}`,
+    bookingId: id,
+    type: 'RETURN',
+    condition: (raw.returnCondition.condition || 'GOOD').toUpperCase() as any,
+    photoUrl: raw.returnCondition.photos[0],
+    notes: raw.returnCondition.notes,
+    reportedAt: raw.returnCondition.recordedAt || new Date().toISOString(),
+    reportedBy: raw.returnCondition.recordedBy || 'borrower',
+    aiDamageDetected: raw.returnCondition.aiFlagged,
+    aiConfidence: raw.returnCondition.aiSimilarityScore,
+  } : undefined;
+
+  return {
+    id,
+    equipmentId: typeof eq === 'object' ? eq?._id || eq?.id : eq,
+    equipmentName,
+    equipmentImage,
+    borrowerId: typeof usr === 'object' ? usr?._id || usr?.id : usr || 'me',
+    borrowerName: typeof usr === 'object' ? usr?.name || 'Student Borrower' : 'Student Borrower',
+    borrowerEmail: typeof usr === 'object' ? usr?.email || '' : '',
+    startDateTime: raw.startDate || raw.startDateTime || new Date().toISOString(),
+    endDateTime: raw.endDate || raw.endDateTime || new Date().toISOString(),
+    purpose: raw.location || raw.purpose || 'Campus Project',
+    status: (raw.status || 'PENDING').toUpperCase() as any,
+    pickupReport,
+    returnReport,
+    rejectionReason: raw.rejectionReason || raw.cancelReason,
+    createdAt: raw.createdAt || new Date().toISOString(),
+  };
+}
+
 export const apiClient = {
+  // 1. User Profile
   async getProfile(): Promise<UserProfile> {
-    if (!API_BASE) return CommuneStore.getUser();
-    const res = await fetch(`${API_BASE}/users/me`);
-    if (!res.ok) throw new Error('Failed to fetch profile');
-    return res.json();
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_BASE}/users/me`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        return {
+          clerkId: data.clerkId || 'user',
+          name: data.name || 'Verified Student',
+          email: data.email || 'student@campus.edu',
+          phone: data.phone,
+          department: data.department || 'Creative Media & Arts',
+          studentId: data.studentId || '2026-STU-8821',
+          avatarUrl: data.avatarUrl,
+          borrowingCount: 0,
+          lendingCount: 0,
+        };
+      }
+    } catch (err) {
+      console.warn('API getProfile fallback to local store:', err);
+    }
+    return CommuneStore.getUser();
   },
 
   async updateProfile(updates: Partial<UserProfile>): Promise<UserProfile> {
-    if (!API_BASE) return CommuneStore.updateUser(updates);
-    const res = await fetch(`${API_BASE}/users/me`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
-    });
-    if (!res.ok) throw new Error('Failed to update profile');
-    return res.json();
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_BASE}/users/me`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(updates),
+      });
+      if (res.ok) {
+        return this.getProfile();
+      }
+    } catch (err) {
+      console.warn('API updateProfile fallback:', err);
+    }
+    return CommuneStore.updateUser(updates);
   },
 
+  // 2. Equipment Catalog
   async getEquipment(filters?: { category?: string; location?: string; status?: string; search?: string }): Promise<Equipment[]> {
-    if (!API_BASE) return CommuneStore.getAllEquipment(filters);
-    const params = new URLSearchParams();
-    if (filters?.category) params.set('category', filters.category);
-    if (filters?.location) params.set('location', filters.location);
-    if (filters?.status) params.set('status', filters.status);
-    const res = await fetch(`${API_BASE}/equipment?${params.toString()}`);
-    if (!res.ok) throw new Error('Failed to fetch equipment');
-    return res.json();
+    try {
+      const params = new URLSearchParams();
+      if (filters?.category && filters.category !== 'All') params.set('category', filters.category);
+      if (filters?.search) params.set('q', filters.search);
+      params.set('limit', '50');
+
+      const res = await fetch(`${API_BASE}/equipment?${params.toString()}`);
+      if (res.ok) {
+        const rawItems = await res.json();
+        if (Array.isArray(rawItems) && rawItems.length > 0) {
+          return rawItems.map(adaptEquipment);
+        }
+      }
+    } catch (err) {
+      console.warn('API getEquipment fallback to local store:', err);
+    }
+    return CommuneStore.getAllEquipment(filters);
   },
 
   async getEquipmentById(id: string): Promise<Equipment | undefined> {
-    if (!API_BASE) return CommuneStore.getEquipmentById(id);
-    const res = await fetch(`${API_BASE}/equipment/${id}`);
-    if (!res.ok) throw new Error('Equipment not found');
-    return res.json();
+    try {
+      const res = await fetch(`${API_BASE}/equipment/${id}`);
+      if (res.ok) {
+        const rawItem = await res.json();
+        if (rawItem) return adaptEquipment(rawItem);
+      }
+    } catch (err) {
+      console.warn(`API getEquipmentById(${id}) fallback:`, err);
+    }
+    return CommuneStore.getEquipmentById(id);
   },
 
   async createEquipment(data: {
     name: string;
     description: string;
-    category: EquipmentCategory;
+    category: string;
     location: string;
     images: string[];
     currentCondition: 'EXCELLENT' | 'GOOD' | 'FAIR';
     specs?: Record<string, string>;
+    maxBorrowDays?: number;
   }): Promise<Equipment> {
-    if (!API_BASE) return CommuneStore.createEquipment(data);
-    const res = await fetch(`${API_BASE}/equipment`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error('Failed to create equipment');
-    return res.json();
+    try {
+      const headers = await getAuthHeaders();
+      const payload = {
+        name: data.name,
+        description: data.description,
+        category: data.category,
+        location: data.location,
+        images: data.images,
+        quantity: 1,
+        condition: {
+          status: data.currentCondition.toLowerCase(),
+        },
+      };
+
+      const res = await fetch(`${API_BASE}/equipment`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const raw = await res.json();
+        return adaptEquipment(raw);
+      }
+    } catch (err) {
+      console.warn('API createEquipment fallback:', err);
+    }
+    return CommuneStore.createEquipment(data as any);
   },
 
+  // 3. Bookings
   async getMyBookings(): Promise<Booking[]> {
-    if (!API_BASE) return CommuneStore.getUserBookings();
-    const res = await fetch(`${API_BASE}/bookings/me`);
-    if (!res.ok) throw new Error('Failed to fetch user bookings');
-    return res.json();
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_BASE}/bookings/me`, { headers });
+      if (res.ok) {
+        const rawBookings = await res.json();
+        if (Array.isArray(rawBookings)) {
+          return rawBookings.map(adaptBooking);
+        }
+      }
+    } catch (err) {
+      console.warn('API getMyBookings fallback:', err);
+    }
+    return CommuneStore.getUserBookings();
   },
 
   async createBooking(data: {
@@ -73,105 +291,147 @@ export const apiClient = {
     endDateTime: string;
     purpose: string;
   }): Promise<{ success: boolean; booking?: Booking; error?: string }> {
-    if (!API_BASE) return CommuneStore.createBooking(data);
-    const res = await fetch(`${API_BASE}/bookings`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    const json = await res.json();
-    return res.ok ? { success: true, booking: json } : { success: false, error: json.error || 'Failed' };
+    try {
+      const headers = await getAuthHeaders();
+      const payload = {
+        equipmentId: data.equipmentId,
+        startDate: data.startDateTime,
+        endDate: data.endDateTime,
+        location: data.purpose,
+      };
+
+      const res = await fetch(`${API_BASE}/bookings`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      const json = await res.json();
+      if (res.ok) {
+        return { success: true, booking: adaptBooking(json) };
+      } else {
+        return { success: false, error: json.error || 'Failed to submit booking request.' };
+      }
+    } catch (err: any) {
+      console.warn('API createBooking fallback:', err);
+      return CommuneStore.createBooking(data);
+    }
   },
 
   async cancelBooking(bookingId: string): Promise<boolean> {
-    if (!API_BASE) return CommuneStore.cancelBooking(bookingId);
-    const res = await fetch(`${API_BASE}/bookings/${bookingId}/cancel`, { method: 'PATCH' });
-    return res.ok;
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_BASE}/bookings/${bookingId}/cancel`, {
+        method: 'PATCH',
+        headers,
+      });
+      if (res.ok) return true;
+    } catch (err) {
+      console.warn('API cancelBooking fallback:', err);
+    }
+    return CommuneStore.cancelBooking(bookingId);
   },
 
-  async submitPickupCondition(bookingId: string, data: { condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'DAMAGED'; photoUrl: string; notes?: string }): Promise<ConditionReport | null> {
-    if (!API_BASE) return CommuneStore.submitConditionReport({ bookingId, type: 'PICKUP', ...data });
-    const res = await fetch(`${API_BASE}/bookings/${bookingId}/pickup-condition`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) return null;
-    return res.json();
+  // 4. Condition Reports
+  async submitPickupCondition(
+    bookingId: string,
+    data: { condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'DAMAGED'; photoUrl: string; notes?: string }
+  ): Promise<ConditionReport | null> {
+    try {
+      const headers = await getAuthHeaders();
+      const payload = {
+        photos: [data.photoUrl],
+        notes: data.notes || '',
+      };
+
+      const res = await fetch(`${API_BASE}/bookings/${bookingId}/pickup-condition`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const raw = await res.json();
+        const b = adaptBooking(raw);
+        return b.pickupReport || null;
+      }
+    } catch (err) {
+      console.warn('API submitPickupCondition fallback:', err);
+    }
+    return CommuneStore.submitConditionReport({ bookingId, type: 'PICKUP', ...data });
   },
 
-  async submitReturnCondition(bookingId: string, data: { condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'DAMAGED'; photoUrl: string; notes?: string }): Promise<ConditionReport | null> {
-    if (!API_BASE) return CommuneStore.submitConditionReport({ bookingId, type: 'RETURN', ...data });
-    const res = await fetch(`${API_BASE}/bookings/${bookingId}/return-condition`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) return null;
-    return res.json();
+  async submitReturnCondition(
+    bookingId: string,
+    data: { condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'DAMAGED'; photoUrl: string; notes?: string }
+  ): Promise<ConditionReport | null> {
+    try {
+      const headers = await getAuthHeaders();
+      const payload = {
+        photos: [data.photoUrl],
+        notes: data.notes || '',
+      };
+
+      const res = await fetch(`${API_BASE}/bookings/${bookingId}/return-condition`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const raw = await res.json();
+        const b = adaptBooking(raw);
+        return b.returnReport || null;
+      }
+    } catch (err) {
+      console.warn('API submitReturnCondition fallback:', err);
+    }
+    return CommuneStore.submitConditionReport({ bookingId, type: 'RETURN', ...data });
   },
 
+  // 5. Activity Stream
   async getMyActivity(): Promise<ActivityLog[]> {
-    if (!API_BASE) return CommuneStore.getUserActivity();
-    const res = await fetch(`${API_BASE}/activity/me`);
-    if (!res.ok) return [];
-    return res.json();
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_BASE}/activity/me`, { headers });
+      if (res.ok) {
+        const raw = await res.json();
+        if (Array.isArray(raw)) {
+          return raw.map((a: any) => ({
+            id: a._id || a.id,
+            userId: a.user || 'user',
+            userName: 'You',
+            action: (a.type || 'BOOKING_CREATED').toUpperCase() as any,
+            entityType: a.equipment ? 'EQUIPMENT' : 'BOOKING',
+            entityId: a.equipment || a.booking || a._id,
+            entityName: a.message || 'System Action',
+            createdAt: a.createdAt || new Date().toISOString(),
+          }));
+        }
+      }
+    } catch (err) {
+      console.warn('API getMyActivity fallback:', err);
+    }
+    return CommuneStore.getUserActivity();
   },
 
-  // Admin APIs
-  async getAdminPendingEquipment(adminSecret?: string): Promise<Equipment[]> {
-    if (!API_BASE) return CommuneStore.getPendingEquipment();
-    const res = await fetch(`${API_BASE}/admin/equipment/pending`, {
-      headers: { 'x-admin-secret': adminSecret || '' },
-    });
-    if (!res.ok) throw new Error('Unauthorized');
-    return res.json();
-  },
+  // 6. Cloudinary Direct Upload
+  async uploadImage(file: File, folder: 'submitted' | 'approved' | 'condition_reports' = 'submitted'): Promise<string> {
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('folder', folder);
 
-  async approveEquipment(equipmentId: string, adminSecret?: string): Promise<boolean> {
-    if (!API_BASE) return CommuneStore.approveEquipment(equipmentId);
-    const res = await fetch(`${API_BASE}/admin/equipment/${equipmentId}/approve`, {
-      method: 'PATCH',
-      headers: { 'x-admin-secret': adminSecret || '' },
+    const res = await fetch(`${API_BASE}/upload`, {
+      method: 'POST',
+      body: formData,
     });
-    return res.ok;
-  },
 
-  async rejectEquipment(equipmentId: string, reason?: string, adminSecret?: string): Promise<boolean> {
-    if (!API_BASE) return CommuneStore.rejectEquipment(equipmentId, reason);
-    const res = await fetch(`${API_BASE}/admin/equipment/${equipmentId}/reject`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'x-admin-secret': adminSecret || '' },
-      body: JSON.stringify({ reason }),
-    });
-    return res.ok;
-  },
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Upload failed' }));
+      throw new Error(err.error || 'Failed to upload image to Cloudinary');
+    }
 
-  async getAdminPendingBookings(adminSecret?: string): Promise<Booking[]> {
-    if (!API_BASE) return CommuneStore.getPendingBookings();
-    const res = await fetch(`${API_BASE}/admin/bookings/pending`, {
-      headers: { 'x-admin-secret': adminSecret || '' },
-    });
-    if (!res.ok) throw new Error('Unauthorized');
-    return res.json();
-  },
-
-  async approveBooking(bookingId: string, adminSecret?: string): Promise<boolean> {
-    if (!API_BASE) return CommuneStore.approveBooking(bookingId);
-    const res = await fetch(`${API_BASE}/admin/bookings/${bookingId}/approve`, {
-      method: 'PATCH',
-      headers: { 'x-admin-secret': adminSecret || '' },
-    });
-    return res.ok;
-  },
-
-  async rejectBooking(bookingId: string, reason?: string, adminSecret?: string): Promise<boolean> {
-    if (!API_BASE) return CommuneStore.rejectBooking(bookingId, reason);
-    const res = await fetch(`${API_BASE}/admin/bookings/${bookingId}/reject`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'x-admin-secret': adminSecret || '' },
-      body: JSON.stringify({ reason }),
-    });
-    return res.ok;
+    const data = await res.json();
+    return data.url;
   },
 };

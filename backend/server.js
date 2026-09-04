@@ -9,6 +9,7 @@ const equipmentRoutes = require('./routes/equipment');
 const bookingsRoutes = require('./routes/bookings');
 const activityRoutes = require('./routes/activity');
 const adminRoutes = require('./routes/admin');
+const uploadRoutes = require('./routes/upload');
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.use('/api/equipment', equipmentRoutes);
 app.use('/api/bookings', bookingsRoutes);
 app.use('/api/activity', activityRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/upload', uploadRoutes);
 
 app.get('/health', (req, res) => res.json({ ok: true }));
 

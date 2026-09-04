@@ -14,7 +14,7 @@ import {
   PlusCircle, 
   RotateCcw
 } from 'lucide-react';
-import { CommuneStore } from '@/lib/store';
+import { apiClient } from '@/lib/api';
 import { Equipment } from '@/lib/types';
 import EquipmentCard from '@/components/EquipmentCard';
 
@@ -24,9 +24,25 @@ export default function EquipmentCataloguePage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [onlyAvailable, setOnlyAvailable] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<'newest' | 'name'>('newest');
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    setEquipmentList(CommuneStore.getAllEquipment());
+    let isMounted = true;
+    apiClient.getEquipment()
+      .then((data) => {
+        if (isMounted) {
+          setEquipmentList(data);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to load equipment catalog:', err);
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const categories = [
@@ -44,14 +60,16 @@ export default function EquipmentCataloguePage() {
 
     if (search.trim()) {
       const q = search.toLowerCase();
-      const matchName = item.name.toLowerCase().includes(q);
-      const matchDesc = item.description.toLowerCase().includes(q);
-      const matchLoc = item.location.toLowerCase().includes(q);
+      const matchName = (item.name || '').toLowerCase().includes(q);
+      const matchDesc = (item.description || '').toLowerCase().includes(q);
+      const matchLoc = (item.location || '').toLowerCase().includes(q);
       if (!matchName && !matchDesc && !matchLoc) return false;
     }
 
-    if (selectedCategory !== 'All' && item.category !== selectedCategory) {
-      return false;
+    if (selectedCategory !== 'All') {
+      const cat = (item.category || '').toLowerCase();
+      const sel = selectedCategory.toLowerCase();
+      if (!cat.includes(sel) && !sel.includes(cat)) return false;
     }
 
     if (onlyAvailable && item.availabilityStatus !== 'AVAILABLE') {

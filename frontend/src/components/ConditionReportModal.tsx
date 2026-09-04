@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { X, Camera, Sparkles, AlertTriangle } from 'lucide-react';
 import { ConditionGrade, ConditionReport } from '@/lib/types';
-import { CommuneStore } from '@/lib/store';
+import { apiClient } from '@/lib/api';
 
 interface ConditionReportModalProps {
   isOpen: boolean;
@@ -28,28 +28,36 @@ export default function ConditionReportModal({
   );
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
-      const report = CommuneStore.submitConditionReport({
-        bookingId,
-        type,
-        condition,
-        photoUrl,
-        notes,
-      });
+      let report: ConditionReport | null = null;
+      if (type === 'PICKUP') {
+        report = await apiClient.submitPickupCondition(bookingId, {
+          condition,
+          photoUrl,
+          notes,
+        });
+      } else {
+        report = await apiClient.submitReturnCondition(bookingId, {
+          condition,
+          photoUrl,
+          notes,
+        });
+      }
 
       if (report) {
         onSuccess(report);
         onClose();
       }
     } catch (err) {
-      console.error(err);
+      console.error('Error submitting condition report:', err);
     } finally {
       setIsSubmitting(false);
     }
@@ -115,20 +123,49 @@ export default function ConditionReportModal({
           </div>
 
           {/* Photo Evidence */}
-          <div className="space-y-1.5">
-            <label className="block text-fluid-micro uppercase font-bold tracking-wider text-[#70706B]">
-              Inspection Photo URL
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-fluid-micro uppercase font-bold tracking-wider text-[#70706B]">
+                Inspection Photo Evidence
+              </label>
+              <span className="text-fluid-micro text-[#70706B]">Cloudinary Verified</span>
+            </div>
+
+            <label className="flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-dashed border-[#E2E2DE] hover:border-[#111110] rounded-xl bg-white cursor-pointer transition-colors text-fluid-body font-semibold text-[#111110]">
+              <Camera className="w-4 h-4" />
+              <span>{isUploadingPhoto ? 'Uploading to Cloudinary...' : 'Upload Inspection Photo'}</span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setIsUploadingPhoto(true);
+                  try {
+                    const url = await apiClient.uploadImage(file, 'condition_reports');
+                    setPhotoUrl(url);
+                  } catch (err) {
+                    console.warn('Upload error:', err);
+                    setPhotoUrl(URL.createObjectURL(file));
+                  } finally {
+                    setIsUploadingPhoto(false);
+                  }
+                }}
+                disabled={isUploadingPhoto}
+                className="hidden"
+              />
             </label>
+
             <input
               type="url"
               value={photoUrl}
               onChange={(e) => setPhotoUrl(e.target.value)}
-              placeholder="https://images.unsplash.com/..."
+              placeholder="Or paste photo URL..."
               className="input-paraquet text-fluid-micro"
               required
             />
             
-            <div className="flex items-center gap-2 pt-1">
+            <div className="flex items-center gap-2 pt-0.5">
               <span className="text-fluid-micro text-[#70706B]">Quick Samples:</span>
               {samplePhotos.map((url, i) => (
                 <button

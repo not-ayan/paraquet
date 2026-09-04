@@ -16,11 +16,21 @@ router.get('/equipment/pending', async (req, res, next) => {
   }
 });
 
+const { moveToApproved } = require('../services/cloudinary');
+
 // PATCH /api/admin/equipment/:id/approve
 router.patch('/equipment/:id/approve', async (req, res, next) => {
   try {
     const item = await Equipment.findById(req.params.id);
     if (!item) return res.status(404).json({ error: 'Not found' });
+
+    // Promote images in Cloudinary from 'submitted' to 'approved' folder
+    if (item.images && item.images.length > 0) {
+      const updatedImages = await Promise.all(
+        item.images.map((img) => moveToApproved(img))
+      );
+      item.images = updatedImages;
+    }
 
     item.approvalStatus = 'approved';
     await item.save();

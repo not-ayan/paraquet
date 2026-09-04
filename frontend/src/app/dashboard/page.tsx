@@ -12,12 +12,21 @@ import {
   CheckCircle2,
   ArrowUpRight
 } from 'lucide-react';
-import { CommuneStore } from '@/lib/store';
+import { apiClient } from '@/lib/api';
 import { Booking, Equipment, ActivityLog, UserProfile } from '@/lib/types';
 import ConditionReportModal from '@/components/ConditionReportModal';
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<UserProfile>(CommuneStore.getUser());
+  const [user, setUser] = useState<UserProfile>({
+    clerkId: 'user_active_student',
+    name: 'Maya Lin',
+    email: 'maya.lin@campus.edu',
+    department: 'Creative Media & Arts',
+    studentId: '2026-STU-8821',
+    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+    borrowingCount: 3,
+    lendingCount: 1,
+  });
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [myEquipment, setMyEquipment] = useState<Equipment[]>([]);
   const [activity, setActivity] = useState<ActivityLog[]>([]);
@@ -30,17 +39,27 @@ export default function DashboardPage() {
     type: 'PICKUP' | 'RETURN';
   } | null>(null);
 
-  const refreshData = () => {
-    setUser(CommuneStore.getUser());
-    setBookings(CommuneStore.getUserBookings());
-    const allEq = CommuneStore.getAllEquipment();
-    setMyEquipment(allEq.filter(e => e.ownerId === user.clerkId));
-    setActivity(CommuneStore.getUserActivity());
+  const refreshData = async () => {
+    try {
+      const [usr, bks, allEq, act] = await Promise.all([
+        apiClient.getProfile(),
+        apiClient.getMyBookings(),
+        apiClient.getEquipment(),
+        apiClient.getMyActivity(),
+      ]);
+
+      setUser(usr);
+      setBookings(bks);
+      setMyEquipment(allEq.filter(e => e.ownerId === usr.clerkId || e.ownerName === usr.name));
+      setActivity(act);
+    } catch (err) {
+      console.warn('Failed to refresh dashboard data:', err);
+    }
   };
 
   useEffect(() => {
     refreshData();
-  }, [user.clerkId]);
+  }, []);
 
   const handleOpenConditionModal = (booking: Booking, type: 'PICKUP' | 'RETURN') => {
     setActiveBookingForReport({
@@ -51,10 +70,10 @@ export default function DashboardPage() {
     setModalOpen(true);
   };
 
-  const handleCancelBooking = (bookingId: string) => {
+  const handleCancelBooking = async (bookingId: string) => {
     if (confirm('Cancel this booking request?')) {
-      CommuneStore.cancelBooking(bookingId);
-      refreshData();
+      await apiClient.cancelBooking(bookingId);
+      await refreshData();
     }
   };
 

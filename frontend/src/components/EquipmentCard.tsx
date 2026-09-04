@@ -61,7 +61,7 @@ export default function EquipmentCard({ equipment }: EquipmentCardProps) {
               alt=""
               className="w-3.5 h-3.5 rounded-full object-cover"
             />
-            <span>{equipment.ownerName.split(' ')[0]}</span>
+            <span>{equipment.ownerName?.split(' ')[0] || 'Steward'}</span>
           </span>
         </div>
 

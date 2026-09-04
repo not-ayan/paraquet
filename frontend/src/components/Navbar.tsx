@@ -15,12 +15,24 @@ import {
   RotateCcw,
   ArrowUpRight
 } from 'lucide-react';
+import { apiClient } from '@/lib/api';
 import { CommuneStore } from '@/lib/store';
 
 export default function Navbar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const equipmentCount = CommuneStore.getAllEquipment().filter(e => e.availabilityStatus === 'AVAILABLE').length;
+  const [equipmentCount, setEquipmentCount] = useState<number>(6);
+
+  React.useEffect(() => {
+    apiClient.getEquipment()
+      .then(items => {
+        const available = items.filter(e => e.availabilityStatus === 'AVAILABLE').length;
+        setEquipmentCount(available || items.length);
+      })
+      .catch(() => {
+        setEquipmentCount(CommuneStore.getAllEquipment().filter(e => e.availabilityStatus === 'AVAILABLE').length);
+      });
+  }, [pathname]);
 
   const navLinks = [
     { href: '/', label: 'Overview' },

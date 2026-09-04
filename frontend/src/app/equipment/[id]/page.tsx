@@ -11,7 +11,7 @@ import {
   AlertCircle,
   UserCheck
 } from 'lucide-react';
-import { CommuneStore } from '@/lib/store';
+import { apiClient } from '@/lib/api';
 import { Equipment } from '@/lib/types';
 
 export default function EquipmentDetailPage() {
@@ -31,13 +31,26 @@ export default function EquipmentDetailPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (id) {
-      const found = CommuneStore.getEquipmentById(id);
-      if (found) {
-        setEquipment(found);
-      }
+      let isMounted = true;
+      apiClient.getEquipmentById(id)
+        .then((found) => {
+          if (isMounted) {
+            if (found) setEquipment(found);
+            setLoading(false);
+          }
+        })
+        .catch((err) => {
+          console.warn('Error loading equipment:', err);
+          if (isMounted) setLoading(false);
+        });
+
+      return () => {
+        isMounted = false;
+      };
     }
   }, [id]);
 
@@ -45,21 +58,23 @@ export default function EquipmentDetailPage() {
     return (
       <div className="container-custom py-20 text-center space-y-4">
         <h2 className="text-fluid-h1 font-bold text-[#111110]">
-          Equipment Not Found
+          {loading ? 'Loading Equipment Details...' : 'Equipment Not Found'}
         </h2>
         <p className="text-fluid-body text-[#70706B]">
-          The item you are looking for may have been archived or removed.
+          {loading ? 'Fetching specs from the catalog...' : 'The item you are looking for may have been archived or removed.'}
         </p>
-        <Link href="/equipment" className="btn-primary inline-flex">
-          <ArrowLeft className="w-4 h-4" /> Return to Catalog
-        </Link>
+        {!loading && (
+          <Link href="/equipment" className="btn-primary inline-flex">
+            <ArrowLeft className="w-4 h-4" /> Return to Catalog
+          </Link>
+        )}
       </div>
     );
   }
 
   const isAvailable = equipment.availabilityStatus === 'AVAILABLE' && equipment.approvalStatus === 'APPROVED';
 
-  const handleBookingSubmit = (e: React.FormEvent) => {
+  const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!purpose.trim()) {
       setBookingError('Please provide a brief statement of purpose.');
@@ -72,7 +87,7 @@ export default function EquipmentDetailPage() {
     const startDateTime = new Date(`${startDate}T${startTime}:00Z`).toISOString();
     const endDateTime = new Date(`${endDate}T${endTime}:00Z`).toISOString();
 
-    const res = CommuneStore.createBooking({
+    const res = await apiClient.createBooking({
       equipmentId: equipment.id,
       startDateTime,
       endDateTime,
