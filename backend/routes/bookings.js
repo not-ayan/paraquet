@@ -106,6 +106,11 @@ router.post('/', requireUser, async (req, res, next) => {
       return res.status(404).json({ error: 'Equipment not available' });
     }
 
+    // Owner protection: prevent listing owners from borrowing their own gear
+    if (equipment.addedBy && equipment.addedBy.toString() === req.dbUser._id.toString()) {
+      return res.status(400).json({ error: 'You cannot borrow your own listed equipment.' });
+    }
+
     const maxDays = equipment.maxBorrowDays || 3;
     const durationDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
     if (durationDays > maxDays) {

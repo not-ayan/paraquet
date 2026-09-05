@@ -20,7 +20,7 @@ const equipmentSchema = new Schema(
     condition: {
       status: {
         type: String,
-        enum: ['good', 'fair', 'poor', 'under_repair'],
+        enum: ['excellent', 'good', 'fair', 'poor', 'damaged', 'under_repair'],
         default: 'good',
       },
       notes: { type: String },

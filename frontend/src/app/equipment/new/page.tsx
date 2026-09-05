@@ -8,11 +8,17 @@ import {
   CheckCircle2, 
   Plus, 
   Trash2,
-  Info,
   Camera,
   Wrench,
   ShieldCheck,
-  Upload
+  Upload,
+  Clock,
+  MapPin,
+  Sparkles,
+  Layers,
+  FileText,
+  Eye,
+  Info
 } from 'lucide-react';
 import { apiClient, getFallbackImage } from '@/lib/api';
 import { EquipmentCategory } from '@/lib/types';
@@ -23,22 +29,19 @@ export default function NewEquipmentPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<EquipmentCategory>('Cameras & Video');
-  const [location, setLocation] = useState('Tezpur University, Assam (Central Lab)');
+  const [location, setLocation] = useState('');
   const [currentCondition, setCurrentCondition] = useState<'EXCELLENT' | 'GOOD' | 'FAIR'>('EXCELLENT');
   const [maxBorrowDays, setMaxBorrowDays] = useState(3);
   
-  const [images, setImages] = useState<string[]>([
-    'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1200&q=80'
-  ]);
+  const [images, setImages] = useState<string[]>([]);
   const [newImageUrl, setNewImageUrl] = useState('');
 
-  const [specs, setSpecs] = useState<{ key: string; value: string }[]>([
-    { key: 'Included Accessories', value: 'Carrying case, 2 batteries, dual charger' },
-    { key: 'Compatibility', value: 'Standard tripod mount, USB-C charge' }
-  ]);
+  const [specs, setSpecs] = useState<{ key: string; value: string }[]>([]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdSuccess, setCreatedSuccess] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const categories: EquipmentCategory[] = [
     'Cameras & Video',
@@ -49,9 +52,6 @@ export default function NewEquipmentPage() {
     'Outdoors & Sports',
     'Music & Instruments',
   ];
-
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -94,6 +94,8 @@ export default function NewEquipmentPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim()) return;
+
     setIsSubmitting(true);
 
     const specObj: Record<string, string> = {};
@@ -104,13 +106,14 @@ export default function NewEquipmentPage() {
     });
 
     const fallbackImg = getFallbackImage(name, category);
+    const finalImages = images.length > 0 ? images : [fallbackImg];
 
     await apiClient.createEquipment({
-      name,
-      description,
+      name: name.trim(),
+      description: description.trim(),
       category,
-      location,
-      images: images.length > 0 ? images : [fallbackImg],
+      location: location.trim(),
+      images: finalImages,
       currentCondition,
       specs: specObj,
       maxBorrowDays,
@@ -124,277 +127,389 @@ export default function NewEquipmentPage() {
     }, 1800);
   };
 
-  return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-6">
-      
-      {/* Back Link */}
-      <Link
-        href="/equipment"
-        className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#70706B] hover:text-[#111110] transition-colors"
-      >
-        <ArrowLeft className="w-4 h-4" /> Back to Equipment Catalog
-      </Link>
+  const previewImage = images[0] || null;
 
-      {/* Header */}
-      <div className="space-y-1.5">
-        <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#8E8E88] block">
-          Contribution
-        </span>
-        <h1 className="text-2xl sm:text-4xl font-extrabold text-[#111110] tracking-tight">
-          List Equipment — Tezpur University
-        </h1>
-        <p className="text-xs sm:text-sm text-[#70706B]">
-          Make idle maker tools, cameras, and audio arrays available to verified Tezpur University students and creators in Assam.
-        </p>
+  return (
+    <div className="container-custom py-8 sm:py-12 space-y-8">
+      
+      {/* Top Header & Breadcrumb */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E5E5E0] pb-6">
+        <div className="space-y-1.5">
+          <Link
+            href="/equipment"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#70706B] hover:text-[#111110] transition-colors mb-1"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" /> Back to Equipment Catalog
+          </Link>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#111110] tracking-tight">
+            List Equipment for Loan
+          </h1>
+          <p className="text-xs sm:text-sm text-[#70706B]">
+            Make maker tools, cameras, and lab hardware available to students and creators at Tezpur University, Assam.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 self-start sm:self-center flex-shrink-0">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#F5F5F3] text-[#70706B] border border-[#E5E5E0]">
+            <ShieldCheck className="w-3.5 h-3.5 text-[#1B7A42]" /> Community Peer Lending
+          </span>
+        </div>
       </div>
 
       {createdSuccess ? (
-        <div className="rounded-[32px] border border-[#A7F3D0] p-10 sm:p-12 text-center space-y-3.5 bg-[#E8F5EB] animate-in zoom-in-95 shadow-sm">
-          <CheckCircle2 className="w-12 h-12 text-[#1B7A42] mx-auto" />
-          <h2 className="text-xl sm:text-2xl font-bold text-[#1B7A42]">
-            Listing Submitted for Moderation!
+        <div className="rounded-[32px] border border-[#A7F3D0] p-10 sm:p-16 text-center space-y-4 bg-[#E8F5EB] animate-in zoom-in-95 shadow-sm max-w-2xl mx-auto my-12">
+          <CheckCircle2 className="w-16 h-16 text-[#1B7A42] mx-auto" />
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-[#1B7A42]">
+            Listing Submitted for Review!
           </h2>
-          <p className="text-xs sm:text-sm text-[#1B7A42]/90 max-w-md mx-auto leading-relaxed">
-            Your item and photos have been received in the <strong>submitted</strong> holding queue pending administrator verification.
+          <p className="text-sm text-[#1B7A42]/90 max-w-md mx-auto leading-relaxed">
+            Your item <strong>&ldquo;{name}&rdquo;</strong> has been recorded and submitted for administrator verification.
           </p>
-          <span className="text-xs text-[#70706B] block">
+          <p className="text-xs text-[#70706B] pt-2">
             Redirecting to your dashboard...
-          </span>
+          </p>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="rounded-[32px] border border-[#E5E5E0] bg-white p-6 sm:p-10 space-y-7 shadow-xs">
-          
-          {/* Moderation Note */}
-          <div className="p-4 bg-[#F8F8F6] border border-[#E5E5E0] rounded-2xl flex items-start gap-3 text-xs text-[#70706B]">
-            <Info className="w-4 h-4 text-[#111110] flex-shrink-0 mt-0.5" />
-            <div>
-              <strong className="text-[#111110] block mb-0.5">Automated Moderation & Cloudinary Routing</strong>
-              New submissions are stored in Cloudinary folder <code className="bg-white px-1.5 py-0.5 rounded-md font-mono text-[#B25E09] border border-[#E5E5E0]">submitted/</code> with status <span className="font-semibold text-[#B25E09]">PENDING</span>. Upon admin approval, photos move to <code className="bg-white px-1.5 py-0.5 rounded-md font-mono text-[#1B7A42] border border-[#E5E5E0]">approved/</code>.
-            </div>
-          </div>
+        <form onSubmit={handleSubmit}>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            
+            {/* Left Column: Form Details & Specifications (7 cols) */}
+            <div className="lg:col-span-7 space-y-6">
+              
+              {/* Primary Info Card */}
+              <div className="rounded-[28px] border border-[#E5E5E0] bg-white p-6 sm:p-8 space-y-6 shadow-2xs">
+                <div className="flex items-center gap-2 pb-2 border-b border-[#F0F0EE]">
+                  <Layers className="w-4 h-4 text-[#111110]" />
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-[#111110]">
+                    Equipment Details
+                  </h2>
+                </div>
 
-          {/* 1. Name */}
-          <div className="space-y-1.5">
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
-              Equipment Name *
-            </label>
-            <input
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Sony Alpha A7 IV Mirrorless Camera"
-              className="input-paraquet rounded-2xl h-[46px] text-xs sm:text-sm font-semibold"
-            />
-          </div>
+                {/* Name */}
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
+                    Equipment Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g. Sony Alpha A7 IV Mirrorless Camera"
+                    className="input-paraquet rounded-2xl h-[46px] text-xs sm:text-sm font-semibold"
+                  />
+                </div>
 
-          {/* 2. Category & Location */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
-                Category *
-              </label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as EquipmentCategory)}
-                className="input-paraquet rounded-2xl h-[46px] text-xs sm:text-sm font-semibold cursor-pointer"
-              >
-                {categories.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
+                {/* Category & Location */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
+                      Category *
+                    </label>
+                    <select
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value as EquipmentCategory)}
+                      className="input-paraquet rounded-2xl h-[46px] text-xs sm:text-sm font-semibold cursor-pointer"
+                    >
+                      {categories.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
 
-            <div className="space-y-1.5">
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
-                Pickup / Lab Location *
-              </label>
-              <input
-                type="text"
-                required
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="e.g. Tezpur University, Assam (Dept of CSE / Central Lab)"
-                className="input-paraquet rounded-2xl h-[46px] text-xs sm:text-sm font-semibold"
-              />
-            </div>
-          </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
+                      Pickup / Lab Location *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      placeholder="e.g. Tezpur University, Assam (Central Lab)"
+                      className="input-paraquet rounded-2xl h-[46px] text-xs sm:text-sm font-semibold"
+                    />
+                  </div>
+                </div>
 
-          {/* 3. Description */}
-          <div className="space-y-1.5">
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
-              Description & Handling Guidelines *
-            </label>
-            <textarea
-              rows={4}
-              required
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe the hardware condition, what cables and accessories are included, and handling guidelines..."
-              className="input-paraquet rounded-2xl text-xs sm:text-sm resize-none"
-            />
-          </div>
+                {/* Description */}
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
+                    Description & Handling Guidelines *
+                  </label>
+                  <textarea
+                    rows={4}
+                    required
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Describe the hardware, lens mount, required cables, and handling instructions for students..."
+                    className="input-paraquet rounded-2xl text-xs sm:text-sm resize-none"
+                  />
+                </div>
 
-          {/* 4. Condition & Max Borrow Days */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
-                Current Physical Condition
-              </label>
-              <select
-                value={currentCondition}
-                onChange={(e) => setCurrentCondition(e.target.value as 'EXCELLENT' | 'GOOD' | 'FAIR')}
-                className="input-paraquet rounded-2xl h-[46px] text-xs sm:text-sm font-semibold cursor-pointer"
-              >
-                <option value="EXCELLENT">EXCELLENT (Like new / flawless)</option>
-                <option value="GOOD">GOOD (Minor cosmetic wear)</option>
-                <option value="FAIR">FAIR (Functional with visible wear)</option>
-              </select>
-            </div>
+                {/* Condition & Max Borrow Days */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-[#F0F0EE]">
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
+                      Current Physical Condition
+                    </label>
+                    <select
+                      value={currentCondition}
+                      onChange={(e) => setCurrentCondition(e.target.value as 'EXCELLENT' | 'GOOD' | 'FAIR')}
+                      className="input-paraquet rounded-2xl h-[46px] text-xs sm:text-sm font-semibold cursor-pointer"
+                    >
+                      <option value="EXCELLENT">EXCELLENT (Like new / flawless)</option>
+                      <option value="GOOD">GOOD (Minor cosmetic wear)</option>
+                      <option value="FAIR">FAIR (Functional with visible wear)</option>
+                    </select>
+                  </div>
 
-            <div className="space-y-1.5">
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
-                Max Recommended Loan (Days)
-              </label>
-              <input
-                type="number"
-                min={1}
-                max={14}
-                value={maxBorrowDays}
-                onChange={(e) => setMaxBorrowDays(parseInt(e.target.value) || 3)}
-                className="input-paraquet rounded-2xl h-[46px] text-xs sm:text-sm font-semibold"
-              />
-            </div>
-          </div>
-
-          {/* 5. Photos */}
-          <div className="space-y-2.5 pt-2 border-t border-[#E5E5E0]">
-            <div className="flex items-center justify-between">
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
-                Equipment Photos (Cloudinary Upload)
-              </label>
-              <span className="text-[11px] text-[#70706B]">Folder: <code className="bg-[#F5F5F3] px-1 py-0.5 rounded text-[10px]">submitted/</code></span>
-            </div>
-
-            {/* Direct File Picker & URL Input */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <label className="flex items-center justify-center gap-2 px-4 h-[46px] border-2 border-dashed border-[#E5E5E0] hover:border-[#111110] rounded-2xl bg-[#F8F8F6] hover:bg-white cursor-pointer transition-colors text-xs sm:text-sm font-bold text-[#111110] active:scale-98">
-                <Upload className="w-4 h-4 flex-shrink-0" />
-                <span className="truncate">{isUploadingImage ? 'Uploading to Cloudinary...' : 'Upload Photo File'}</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  disabled={isUploadingImage}
-                  className="hidden"
-                />
-              </label>
-
-              <div className="flex gap-2">
-                <input
-                  type="url"
-                  value={newImageUrl}
-                  onChange={(e) => setNewImageUrl(e.target.value)}
-                  placeholder="Or paste image URL..."
-                  className="input-paraquet rounded-2xl text-xs sm:text-sm flex-grow h-[46px]"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddImage}
-                  className="btn-secondary text-xs px-4 h-[46px] rounded-2xl whitespace-nowrap active:scale-95"
-                >
-                  Add URL
-                </button>
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
+                      Max Recommended Loan (Days)
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={14}
+                      value={maxBorrowDays}
+                      onChange={(e) => setMaxBorrowDays(parseInt(e.target.value) || 3)}
+                      className="input-paraquet rounded-2xl h-[46px] text-xs sm:text-sm font-semibold"
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
 
-            {uploadError && (
-              <p className="text-xs text-[#DC2626]">{uploadError}</p>
-            )}
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-              {images.map((img, i) => (
-                <div key={i} className="relative aspect-video rounded-2xl overflow-hidden bg-[#F8F8F6] border border-[#E5E5E0] group">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={img} alt="" className="w-full h-full object-cover" />
+              {/* Technical Specifications Card */}
+              <div className="rounded-[28px] border border-[#E5E5E0] bg-white p-6 sm:p-8 space-y-4 shadow-2xs">
+                <div className="flex items-center justify-between pb-2 border-b border-[#F0F0EE]">
+                  <div className="flex items-center gap-2">
+                    <Wrench className="w-4 h-4 text-[#111110]" />
+                    <h2 className="text-sm font-bold uppercase tracking-wider text-[#111110]">
+                      Technical Specifications & Included Items
+                    </h2>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => handleRemoveImage(i)}
-                    className="absolute top-1.5 right-1.5 p-1.5 bg-black/70 hover:bg-black text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="Remove Photo"
+                    onClick={handleAddSpec}
+                    className="text-xs text-[#111110] font-bold hover:underline flex items-center gap-1 bg-[#F5F5F3] hover:bg-[#EDEDEA] px-3 py-1.5 rounded-full transition-colors"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Plus className="w-3.5 h-3.5" /> Add Field
                   </button>
                 </div>
-              ))}
-            </div>
-          </div>
 
-          {/* 6. Technical Specs */}
-          <div className="space-y-3 pt-2 border-t border-[#E5E5E0]">
-            <div className="flex items-center justify-between">
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
-                Technical Specs & Accessories
-              </label>
-              <button
-                type="button"
-                onClick={handleAddSpec}
-                className="text-xs text-[#111110] font-bold hover:underline flex items-center gap-1"
-              >
-                <Plus className="w-3.5 h-3.5" /> Add Field
-              </button>
-            </div>
-
-            {specs.map((s, idx) => (
-              <div key={idx} className="flex gap-2.5 items-center">
-                <input
-                  type="text"
-                  placeholder="Key (e.g. Sensor)"
-                  value={s.key}
-                  onChange={(e) => {
-                    const copy = [...specs];
-                    copy[idx].key = e.target.value;
-                    setSpecs(copy);
-                  }}
-                  className="input-paraquet rounded-2xl text-xs sm:text-sm w-1/3 min-w-0 h-[44px]"
-                />
-                <input
-                  type="text"
-                  placeholder="Value (e.g. Full Frame 4K)"
-                  value={s.value}
-                  onChange={(e) => {
-                    const copy = [...specs];
-                    copy[idx].value = e.target.value;
-                    setSpecs(copy);
-                  }}
-                  className="input-paraquet rounded-2xl text-xs sm:text-sm flex-grow min-w-0 h-[44px]"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleRemoveSpec(idx)}
-                  className="p-2 text-[#70706B] hover:text-[#DC2626] flex-shrink-0 transition-colors"
-                  title="Remove Field"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="space-y-2.5 pt-1">
+                  {specs.length === 0 ? (
+                    <div className="p-4 rounded-2xl bg-[#F8F8F6] border border-dashed border-[#E5E5E0] text-center text-xs text-[#70706B]">
+                      No custom specifications added yet. Click &ldquo;+ Add Field&rdquo; above to include accessories or hardware specs.
+                    </div>
+                  ) : (
+                    specs.map((s, idx) => (
+                      <div key={idx} className="flex gap-2.5 items-center">
+                        <input
+                          type="text"
+                          placeholder="Feature / Key (e.g. Resolution)"
+                          value={s.key}
+                          onChange={(e) => {
+                            const copy = [...specs];
+                            copy[idx].key = e.target.value;
+                            setSpecs(copy);
+                          }}
+                          className="input-paraquet rounded-2xl text-xs sm:text-sm w-2/5 min-w-0 h-[44px] font-medium"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Specification (e.g. 4K 60fps ProRes)"
+                          value={s.value}
+                          onChange={(e) => {
+                            const copy = [...specs];
+                            copy[idx].value = e.target.value;
+                            setSpecs(copy);
+                          }}
+                          className="input-paraquet rounded-2xl text-xs sm:text-sm flex-grow min-w-0 h-[44px]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSpec(idx)}
+                          className="p-2.5 text-[#70706B] hover:text-[#DC2626] hover:bg-[#FEE2E2] rounded-xl flex-shrink-0 transition-colors"
+                          title="Remove Field"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
-            ))}
-          </div>
 
-          {/* Actions */}
-          <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E5E5E0]">
-            <Link href="/equipment" className="btn-secondary rounded-full px-5 py-2.5 text-xs sm:text-sm">
-              Cancel
-            </Link>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="btn-primary rounded-full px-6 py-2.5 text-xs sm:text-sm shadow-xs"
-            >
-              {isSubmitting ? 'Submitting...' : 'Submit Equipment Listing ↗'}
-            </button>
-          </div>
+            </div>
 
+            {/* Right Column: Photos, Live Card Preview & Submission (5 cols) */}
+            <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-24">
+              
+              {/* Cloudinary Photo Upload Card */}
+              <div className="rounded-[28px] border border-[#E5E5E0] bg-white p-6 sm:p-8 space-y-4 shadow-2xs">
+                <div className="flex items-center justify-between pb-2 border-b border-[#F0F0EE]">
+                  <div className="flex items-center gap-2">
+                    <Camera className="w-4 h-4 text-[#111110]" />
+                    <h2 className="text-sm font-bold uppercase tracking-wider text-[#111110]">
+                      Equipment Photos
+                    </h2>
+                  </div>
+                  <span className="text-xs font-semibold text-[#70706B]">
+                    {images.length} {images.length === 1 ? 'photo' : 'photos'}
+                  </span>
+                </div>
+
+                {/* Upload & URL Input */}
+                <div className="space-y-3">
+                  <label className="flex items-center justify-center gap-2 px-4 h-[48px] border-2 border-dashed border-[#E5E5E0] hover:border-[#111110] rounded-2xl bg-[#F8F8F6] hover:bg-white cursor-pointer transition-all text-xs sm:text-sm font-bold text-[#111110] active:scale-98">
+                    <Upload className="w-4 h-4 flex-shrink-0 text-[#111110]" />
+                    <span className="truncate">{isUploadingImage ? 'Uploading photo...' : 'Upload from Device'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      disabled={isUploadingImage}
+                      className="hidden"
+                    />
+                  </label>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      value={newImageUrl}
+                      onChange={(e) => setNewImageUrl(e.target.value)}
+                      placeholder="Or paste image URL..."
+                      className="input-paraquet rounded-2xl text-xs flex-grow h-[44px]"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddImage}
+                      className="btn-secondary text-xs px-4 h-[44px] rounded-2xl whitespace-nowrap active:scale-95"
+                    >
+                      Add URL
+                    </button>
+                  </div>
+
+                  {uploadError && (
+                    <p className="text-xs text-[#DC2626]">{uploadError}</p>
+                  )}
+                </div>
+
+                {/* Thumbnails Gallery */}
+                {images.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-2.5 pt-2">
+                    {images.map((img, i) => (
+                      <div key={i} className="relative aspect-square rounded-2xl overflow-hidden bg-[#F8F8F6] border border-[#E5E5E0] group">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={img} alt="" className="w-full h-full object-cover" />
+                        {i === 0 && (
+                          <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/75 text-[9px] font-bold text-white uppercase tracking-wider">
+                            Cover
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveImage(i)}
+                          className="absolute top-1.5 right-1.5 p-1.5 bg-black/70 hover:bg-[#DC2626] text-white rounded-full opacity-0 group-hover:opacity-100 transition-all"
+                          title="Remove Photo"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-2xl bg-[#F8F8F6] border border-dashed border-[#E5E5E0] text-center text-xs text-[#70706B]">
+                    No photos uploaded yet. Upload a photo or paste a URL above.
+                  </div>
+                )}
+              </div>
+
+              {/* Live Preview Card */}
+              <div className="rounded-[28px] border border-[#E5E5E0] bg-white p-6 space-y-3.5 shadow-2xs">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#70706B]">
+                  <Eye className="w-3.5 h-3.5 text-[#111110]" />
+                  <span>Live Catalog Card Preview</span>
+                </div>
+
+                <div className="rounded-2xl border border-[#E5E5E0] overflow-hidden bg-[#F8F8F6]">
+                  <div className="relative aspect-video w-full bg-[#F5F5F3] border-b border-[#E5E5E0] overflow-hidden">
+                    {previewImage ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img 
+                        src={previewImage} 
+                        alt={name || 'Equipment Preview'} 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-[#8E8E88] gap-1.5 p-4 text-center bg-[#F8F8F6]">
+                        <div className="w-9 h-9 rounded-xl bg-[#EDEDEA] flex items-center justify-center text-[#70706B]">
+                          <Upload className="w-4 h-4 text-[#70706B]" />
+                        </div>
+                        <span className="text-[11px] font-semibold text-[#70706B]">No Photo Uploaded</span>
+                        <span className="text-[10px] text-[#A8A8A2]">Photo preview will appear here</span>
+                      </div>
+                    )}
+                    <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 flex-wrap">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/95 text-[#111110] backdrop-blur-xs shadow-2xs">
+                        {category}
+                      </span>
+                    </div>
+                    <div className="absolute bottom-2.5 right-2.5">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#111110]/80 text-white backdrop-blur-xs">
+                        Max {maxBorrowDays}d
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-4 space-y-2 bg-white">
+                    <h3 className="font-bold text-sm text-[#111110] line-clamp-1">
+                      {name || 'Equipment Title Preview'}
+                    </h3>
+                    <div className="flex items-center justify-between text-[11px] text-[#70706B] pt-1 border-t border-[#F0F0EE]">
+                      <span className="flex items-center gap-1 truncate max-w-[200px]">
+                        <MapPin className="w-3 h-3 text-[#E11D48] flex-shrink-0" />
+                        <span className="truncate">{location || 'Tezpur University, Assam'}</span>
+                      </span>
+                      <span className="font-bold text-[#1B7A42] bg-[#E8F5EB] px-2 py-0.5 rounded-full flex-shrink-0">
+                        ₹0 Free Loan
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="rounded-[28px] border border-[#E5E5E0] bg-white p-6 space-y-3 shadow-2xs">
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !name.trim()}
+                  className={`w-full py-3.5 rounded-full text-xs sm:text-sm font-bold transition-all shadow-xs active:scale-98 ${
+                    !isSubmitting && name.trim()
+                      ? 'btn-primary'
+                      : 'inline-flex items-center justify-center bg-[#EDEDEA] text-[#9C9C96] border border-[#E5E5E0] cursor-not-allowed'
+                  }`}
+                >
+                  {isSubmitting ? 'Submitting Equipment...' : 'Submit Equipment Listing ↗'}
+                </button>
+
+                <Link
+                  href="/equipment"
+                  className="btn-secondary w-full py-3 rounded-full text-xs font-semibold block text-center"
+                >
+                  Cancel
+                </Link>
+
+                <p className="text-center text-[11px] text-[#70706B] pt-1">
+                  Verified equipment will appear in the catalog after review.
+                </p>
+              </div>
+
+            </div>
+
+          </div>
         </form>
       )}
 

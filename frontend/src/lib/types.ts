@@ -74,6 +74,8 @@ export interface Equipment {
   ownerId: string;
   ownerName: string;
   ownerAvatar?: string;
+  ownerClerkId?: string;
+  ownerEmail?: string;
   images: string[];
   currentCondition: ConditionGrade;
   approvalStatus: ApprovalStatus;

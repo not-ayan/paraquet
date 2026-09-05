@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { 
   Calendar, 
@@ -60,10 +60,10 @@ export default function DashboardPage() {
   const refreshData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const [usr, bks, allEq, act] = await Promise.all([
+      const [usr, bks, myEq, act] = await Promise.all([
         apiClient.getProfile(),
         apiClient.getMyBookings(),
-        apiClient.getEquipment(),
+        apiClient.getMyEquipment(),
         apiClient.getMyActivity(),
       ]);
 
@@ -81,7 +81,7 @@ export default function DashboardPage() {
       });
 
       setBookings(bks);
-      setMyEquipment(allEq.filter(e => e.ownerId === currentClerkId || e.ownerName === currentName));
+      setMyEquipment(myEq);
       setActivity(act);
     } catch (err) {
       console.warn('Failed to refresh dashboard data:', err);
@@ -175,12 +175,30 @@ export default function DashboardPage() {
     }
   };
 
-  const filteredActivity = activity.filter((act) => {
+  const dedupedActivity = useMemo(() => {
+    const seen = new Set<string>();
+    const result: ActivityLog[] = [];
+    for (const act of activity) {
+      const cr = act.conditionReport;
+      const dateKey = act.createdAt ? act.createdAt.slice(0, 16) : act.id;
+      const key = cr 
+        ? `cr-${act.entityId || ''}-${act.bookingId || ''}-${cr.type}-${dateKey}` 
+        : `act-${act.id}`;
+      
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(act);
+      }
+    }
+    return result;
+  }, [activity]);
+
+  const filteredActivity = dedupedActivity.filter((act) => {
     if (activityFilter === 'CONDITION') {
-      return Boolean(act.conditionReport) || act.action.includes('CONDITION') || act.action.includes('PICKUP') || act.action.includes('RETURN');
+      return Boolean(act.conditionReport) || act.action?.includes('CONDITION') || act.action?.includes('PICKUP') || act.action?.includes('RETURN');
     }
     if (activityFilter === 'BOOKINGS') {
-      return act.entityType === 'BOOKING' || act.action.includes('BOOKING');
+      return act.entityType === 'BOOKING' || act.action?.includes('BOOKING');
     }
     return true;
   });
@@ -271,7 +289,7 @@ export default function DashboardPage() {
           }`}
         >
           <Activity className="w-4 h-4 flex-shrink-0" />
-          <span>Audit Stream ({activity.length})</span>
+          <span>Audit Stream ({dedupedActivity.length})</span>
         </button>
       </div>
 
@@ -754,7 +772,7 @@ export default function DashboardPage() {
                     : 'text-[#70706B] hover:text-[#111110]'
                 }`}
               >
-                All Events ({activity.length})
+                All Events ({dedupedActivity.length})
               </button>
               <button
                 onClick={() => setActivityFilter('CONDITION')}
@@ -765,7 +783,7 @@ export default function DashboardPage() {
                 }`}
               >
                 <Camera className="w-3.5 h-3.5" />
-                Condition Reports ({activity.filter(a => Boolean(a.conditionReport)).length})
+                Condition Reports ({dedupedActivity.filter(a => Boolean(a.conditionReport)).length})
               </button>
               <button
                 onClick={() => setActivityFilter('BOOKINGS')}
