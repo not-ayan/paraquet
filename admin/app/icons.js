@@ -209,3 +209,13 @@ export function IconChevronRight(props) {
     </svg>
   );
 }
+
+export function IconClock(props) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="10" cy="10" r="7.5" />
+      <path d="M10 5.5v4.75l3 1.75" />
+    </svg>
+  );
+}
+

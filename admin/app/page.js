@@ -18,16 +18,21 @@ import {
   IconUpload,
   IconDownload,
   IconRefresh,
+  IconClock,
   IconInfo,
 } from './icons';
 
 const EVENT_TYPE_ICONS = {
   booking_requested: IconCalendar,
+  booking_created: IconCalendar,
   booking_approved: IconCheckCircle,
   booking_rejected: IconXCircle,
+  booking_cancelled: IconXCircle,
+  booking_overdue: IconClock,
   pickup_recorded: IconUpload,
   return_recorded: IconDownload,
   condition_flagged: IconAlertTriangle,
+  equipment_added: IconPackage,
   equipment_submitted: IconPackage,
   equipment_approved: IconCheckCircle,
   equipment_rejected: IconXCircle,

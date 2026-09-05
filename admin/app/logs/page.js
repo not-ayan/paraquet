@@ -16,16 +16,21 @@ import {
   IconUser,
   IconCamera,
   IconCpu,
+  IconClock,
   IconInfo,
 } from '../icons';
 
 const EVENT_TYPE_ICONS = {
   booking_requested: IconCalendar,
+  booking_created: IconCalendar,
   booking_approved: IconCheckCircle,
   booking_rejected: IconXCircle,
+  booking_cancelled: IconXCircle,
+  booking_overdue: IconClock,
   pickup_recorded: IconUpload,
   return_recorded: IconDownload,
   condition_flagged: IconAlertTriangle,
+  equipment_added: IconPackage,
   equipment_submitted: IconPackage,
   equipment_approved: IconCheckCircle,
   equipment_rejected: IconXCircle,
@@ -34,12 +39,14 @@ const EVENT_TYPE_ICONS = {
 
 const FILTER_TYPES = [
   { value: '', label: 'All Event Types' },
+  { value: 'booking_overdue', label: 'Overdue Loan Alerts' },
   { value: 'return_recorded', label: 'Return Inspections' },
   { value: 'pickup_recorded', label: 'Pickup Baseline Checks' },
   { value: 'condition_flagged', label: 'Condition Flags (AI)' },
   { value: 'booking_requested', label: 'Booking Requests' },
   { value: 'booking_approved', label: 'Booking Approvals' },
   { value: 'booking_rejected', label: 'Booking Rejections' },
+  { value: 'booking_cancelled', label: 'Booking Cancellations' },
   { value: 'equipment_approved', label: 'Equipment Approvals' },
   { value: 'equipment_submitted', label: 'Equipment Submissions' },
 ];
@@ -69,6 +76,10 @@ export default function ActivityLogPage() {
     load();
   }, [load]);
 
+  const overdueCount = logs.filter(
+    (l) => l.type === 'booking_overdue' || l.booking?.status === 'overdue'
+  ).length;
+
   return (
     <div className="container">
       <div className="page-header" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
@@ -76,10 +87,15 @@ export default function ActivityLogPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span className="brand-tag">Tezpur University · System Audit Trail</span>
             <span className="badge user">{logs.length} Logged Events</span>
+            {overdueCount > 0 && (
+              <span className="badge flagged" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <IconClock /> {overdueCount} Overdue
+              </span>
+            )}
           </div>
           <h1 className="page-title">Activity &amp; Inspection Audit Logs</h1>
           <p className="page-desc">
-            Live campus audit trail capturing booking requests, loan approvals, condition evidence photos, and Gemini Vision AI inspection reports.
+            Live campus audit trail capturing booking requests, loan approvals, overdue delay alerts, condition evidence photos, and Gemini Vision AI inspection reports.
           </p>
         </div>
 
@@ -148,6 +164,19 @@ export default function ActivityLogPage() {
             log.type === 'condition_flagged'
           );
 
+          // Overdue Status Assessment
+          const isOverdue = Boolean(
+            log.type === 'booking_overdue' ||
+            log.booking?.status === 'overdue' ||
+            (log.booking?.status === 'active' && log.booking?.endDate && new Date(log.booking.endDate) < new Date())
+          );
+
+          const daysLate = log.booking?.endDate
+            ? Math.max(1, Math.ceil((new Date() - new Date(log.booking.endDate)) / (1000 * 60 * 60 * 24)))
+            : null;
+
+          const overdueFee = log.booking?.charges?.overdueFee || (daysLate ? daysLate * 250 : null);
+
           const aiReviewText = aiAnalysis?.detailedDiscrepancyReport ||
             aiAnalysis?.detailedSummary ||
             (log.conditionReport?.notes && log.conditionReport.notes.includes('AI:')
@@ -158,7 +187,9 @@ export default function ActivityLogPage() {
             <div key={log._id} className="audit-item">
               <div className="audit-header">
                 <div className="audit-left">
-                  <div className="audit-icon"><EventIcon /></div>
+                  <div className="audit-icon" style={isOverdue ? { color: 'var(--color-danger-text)', background: 'var(--color-danger-bg)', borderColor: 'var(--color-danger-border)' } : {}}>
+                    <EventIcon />
+                  </div>
                   <div className="audit-content">
                     <div className="audit-msg">
                       {log.message || log.type.replace(/_/g, ' ')}
@@ -175,14 +206,35 @@ export default function ActivityLogPage() {
                         </span>
                       )}
                       <span className="brand-tag" style={{ fontSize: '0.62rem' }}>
-                        {log.type}
+                        {log.type.replace(/_/g, ' ')}
                       </span>
+                      {log.booking?.startDate && log.booking?.endDate && (
+                        <span style={{ fontSize: '0.74rem', color: isOverdue ? 'var(--color-danger-text)' : 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                          &bull; Due: {new Date(log.booking.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                          {isOverdue && ' (Passed)'}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
 
                 <div className="audit-right">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    {/* Overdue Badge */}
+                    {isOverdue && (
+                      <span className="badge flagged" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <IconClock /> Overdue {daysLate ? `(${daysLate}d late)` : ''}
+                      </span>
+                    )}
+
+                    {/* Accrued Late Penalty */}
+                    {isOverdue && overdueFee && overdueFee > 0 && (
+                      <span className="badge pending">
+                        Late Fee: ₹{overdueFee}
+                      </span>
+                    )}
+
+                    {/* Standard Condition Badge */}
                     {condition && (
                       <span className={`badge ${
                         condition === 'damaged' || condition === 'poor' ? 'flagged' :
@@ -191,12 +243,15 @@ export default function ActivityLogPage() {
                         {condition}
                       </span>
                     )}
+
+                    {/* AI Similarity Score */}
                     {similarityScore !== null && (
                       <span className={`badge ${similarityScore >= 0.8 ? 'approved' : 'flagged'}`}>
                         {Math.round(similarityScore * 100)}% Match
                       </span>
                     )}
                   </div>
+
                   <div className="audit-time">
                     {new Date(log.createdAt).toLocaleString(undefined, {
                       month: 'short',
@@ -208,6 +263,35 @@ export default function ActivityLogPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Overdue Specific Notice Banner */}
+              {isOverdue && log.type === 'booking_overdue' && (
+                <div style={{
+                  padding: '12px 16px',
+                  background: 'var(--color-danger-bg)',
+                  border: '1px solid var(--color-danger-border)',
+                  borderRadius: 'var(--radius-md)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 10,
+                  fontSize: '0.84rem',
+                  color: 'var(--text-primary)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <IconClock style={{ color: 'var(--color-danger-text)', fontSize: '1.1rem' }} />
+                    <span>
+                      <strong style={{ color: 'var(--color-danger-text)' }}>Overdue Return Alert:</strong> This equipment loan has exceeded its scheduled return deadline. Automatic notification dispatched to borrower.
+                    </span>
+                  </div>
+                  {overdueFee > 0 && (
+                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--color-danger-text)' }}>
+                      Penalty Accrued: ₹{overdueFee}
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* Inspection Photos Gallery */}
               {photos && photos.length > 0 && (
