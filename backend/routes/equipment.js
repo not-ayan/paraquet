@@ -1,22 +1,77 @@
 const express = require('express');
-const { Equipment, ActivityLog } = require('../models');
+const { Equipment, Booking, ActivityLog } = require('../models');
 const { requireUser } = require('../middleware/auth');
 
 const router = express.Router();
 
-// GET /api/equipment — public catalogue + search
+// GET /api/equipment — public catalogue + search + date-wise availability checking
 router.get('/', async (req, res, next) => {
   try {
-    const { q, category, tag, page = 1, limit = 20 } = req.query;
+    const { q, category, tag, startDate, endDate, availableOnly, page = 1, limit = 50 } = req.query;
     const filter = { approvalStatus: 'approved' };
-    if (category) filter.category = category;
+    if (category && category !== 'All') filter.category = category;
     if (tag) filter.tags = tag;
     if (q) filter.$text = { $search: q };
 
-    const items = await Equipment.find(filter)
+    let items = await Equipment.find(filter)
       .limit(Number(limit))
       .skip((Number(page) - 1) * Number(limit))
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // If date range is specified, evaluate overlapping bookings for each equipment
+    if (startDate && endDate) {
+      const reqStart = new Date(startDate);
+      const reqEnd = new Date(endDate);
+
+      if (!isNaN(reqStart.getTime()) && !isNaN(reqEnd.getTime())) {
+        const equipmentIds = items.map((i) => i._id);
+
+        const overlappingBookings = await Booking.find({
+          equipment: { $in: equipmentIds },
+          status: { $in: ['pending', 'approved', 'active'] },
+          startDate: { $lt: reqEnd },
+          endDate: { $gt: reqStart },
+        }).lean();
+
+        items = items.map((item) => {
+          const itemConflicts = overlappingBookings.filter(
+            (b) => b.equipment.toString() === item._id.toString()
+          );
+
+          const isUnderMaintenance = item.availability === 'maintenance';
+          const isRetired = item.availability === 'retired';
+          const hasBookingConflict = itemConflicts.length > 0;
+
+          const isAvailable = !isUnderMaintenance && !isRetired && !hasBookingConflict;
+
+          let conflictReason = undefined;
+          if (isUnderMaintenance) {
+            conflictReason = 'Under maintenance';
+          } else if (isRetired) {
+            conflictReason = 'Equipment retired';
+          } else if (hasBookingConflict) {
+            const conflict = itemConflicts[0];
+            const startStr = new Date(conflict.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const endStr = new Date(conflict.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            conflictReason = `Booked (${startStr} – ${endStr})`;
+          }
+
+          return {
+            ...item,
+            dateAvailability: {
+              isAvailable,
+              conflictReason,
+              conflictCount: itemConflicts.length,
+            },
+          };
+        });
+
+        if (availableOnly === 'true' || availableOnly === true) {
+          items = items.filter((item) => item.dateAvailability?.isAvailable);
+        }
+      }
+    }
 
     res.json(items);
   } catch (err) {
@@ -82,6 +137,66 @@ router.patch('/:id', requireUser, async (req, res, next) => {
     });
 
     await item.save();
+    res.json(item);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /api/equipment/:id/status — WEB-C08: Record status change with previousValue, newValue, time, and reason
+router.patch('/:id/status', requireUser, async (req, res, next) => {
+  try {
+    const { status, reason } = req.body;
+    if (!status) return res.status(400).json({ error: 'New status is required' });
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ error: 'A justification reason is required for status changes (WEB-C08)' });
+    }
+
+    const validStatuses = ['available', 'booked', 'maintenance', 'retired'];
+    const normalizedStatus = status.toLowerCase();
+    if (!validStatuses.includes(normalizedStatus)) {
+      return res.status(400).json({ 
+        error: `Invalid status: ${status}. Must be one of: ${validStatuses.join(', ')}` 
+      });
+    }
+
+    const item = await Equipment.findById(req.params.id);
+    if (!item) return res.status(404).json({ error: 'Equipment not found' });
+
+    const previousValue = item.availability || 'available';
+    const newValue = normalizedStatus;
+
+    item.availability = newValue;
+
+    const rawUserName = req.headers['x-user-name'];
+    const authorName = rawUserName 
+      ? decodeURIComponent(rawUserName) 
+      : (req.dbUser?.name || 'Community Steward');
+
+    const historyRecord = {
+      previousValue,
+      newValue,
+      reason: reason.trim(),
+      changedAt: new Date(),
+      changedBy: req.dbUser?._id,
+      changedByName: authorName,
+    };
+
+    if (!Array.isArray(item.statusHistory)) {
+      item.statusHistory = [];
+    }
+    item.statusHistory.unshift(historyRecord);
+
+    await item.save();
+
+    // Create activity audit entry for the event stream
+    await ActivityLog.create({
+      user: req.dbUser._id,
+      type: 'equipment_status_changed',
+      equipment: item._id,
+      message: `Equipment status changed from ${previousValue.toUpperCase()} to ${newValue.toUpperCase()}: "${reason.trim()}"`,
+    });
+
     res.json(item);
   } catch (err) {
     next(err);

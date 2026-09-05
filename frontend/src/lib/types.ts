@@ -7,11 +7,11 @@ export type EquipmentCategory =
   | 'Outdoors & Sports'
   | 'Music & Instruments';
 
-export type AvailabilityStatus = 'AVAILABLE' | 'UNAVAILABLE' | 'BOOKED' | 'MAINTENANCE';
+export type AvailabilityStatus = 'AVAILABLE' | 'UNAVAILABLE' | 'BOOKED' | 'MAINTENANCE' | 'RETIRED';
 
 export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
-export type BookingStatus = 'PENDING' | 'APPROVED' | 'ACTIVE' | 'RETURNED' | 'CANCELLED' | 'REJECTED';
+export type BookingStatus = 'PENDING' | 'APPROVED' | 'ACTIVE' | 'RETURNED' | 'CANCELLED' | 'REJECTED' | 'OVERDUE';
 
 export type ConditionGrade = 'EXCELLENT' | 'GOOD' | 'FAIR' | 'DAMAGED';
 
@@ -26,6 +26,21 @@ export interface ConditionReport {
   reportedBy: string;
   aiDamageDetected?: boolean;
   aiConfidence?: number;
+}
+
+export interface StatusChangeRecord {
+  previousValue: string;
+  newValue: string;
+  reason: string;
+  changedAt: string;
+  changedBy?: string;
+  changedByName?: string;
+}
+
+export interface DateAvailability {
+  isAvailable: boolean;
+  conflictReason?: string;
+  conflictCount?: number;
 }
 
 export interface Equipment {
@@ -45,6 +60,8 @@ export interface Equipment {
   createdAt: string;
   depositAmount?: number;
   maxBorrowDays?: number;
+  statusHistory?: StatusChangeRecord[];
+  dateAvailability?: DateAvailability;
 }
 
 export interface Booking {
@@ -69,6 +86,7 @@ export interface ActivityLog {
   id: string;
   userId: string;
   userName: string;
+  userAvatar?: string;
   action: 
     | 'EQUIPMENT_CREATED'
     | 'EQUIPMENT_APPROVED'
@@ -78,11 +96,26 @@ export interface ActivityLog {
     | 'BOOKING_REJECTED'
     | 'BOOKING_CANCELLED'
     | 'PICKUP_REPORTED'
-    | 'RETURN_REPORTED';
+    | 'RETURN_REPORTED'
+    | 'CONDITION_FLAGGED'
+    | string;
   entityType: 'EQUIPMENT' | 'BOOKING' | 'CONDITION_REPORT';
   entityId: string;
   entityName: string;
+  equipmentImage?: string;
+  equipmentCategory?: string;
+  message?: string;
   createdAt: string;
+  conditionReport?: {
+    type: 'PICKUP' | 'RETURN' | 'INSPECTION';
+    condition: ConditionGrade;
+    photos: string[];
+    notes?: string;
+    aiFlagged?: boolean;
+    aiSimilarityScore?: number;
+    recordedAt?: string;
+    recordedBy?: string;
+  };
 }
 
 export interface UserProfile {

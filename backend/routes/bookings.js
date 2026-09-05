@@ -30,8 +30,23 @@ async function hasConflict(equipmentId, startDate, endDate, excludeBookingId) {
 router.get('/me', requireUser, async (req, res, next) => {
   try {
     const bookings = await Booking.find({ user: req.dbUser._id })
-      .populate('equipment')
+      .populate('equipment user')
       .sort({ createdAt: -1 });
+    res.json(bookings);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/bookings/equipment/:equipmentId — public schedule for equipment
+router.get('/equipment/:equipmentId', async (req, res, next) => {
+  try {
+    const bookings = await Booking.find({
+      equipment: req.params.equipmentId,
+      status: { $in: ['pending', 'approved', 'active', 'overdue'] },
+    })
+      .populate('user', 'name email avatarUrl clerkId')
+      .sort({ startDate: 1 });
     res.json(bookings);
   } catch (err) {
     next(err);
@@ -57,9 +72,18 @@ router.get('/:id', requireUser, async (req, res, next) => {
 // POST /api/bookings
 router.post('/', requireUser, async (req, res, next) => {
   try {
-    const { equipmentId, startDate, endDate, location } = req.body;
+    const { equipmentId, startDate, endDate, location, borrowerName, borrowerEmail } = req.body;
     if (!equipmentId || !startDate || !endDate) {
       return res.status(400).json({ error: 'equipmentId, startDate, endDate are required' });
+    }
+
+    // Sync borrower name to user profile if provided
+    if (borrowerName && (!req.dbUser.name || req.dbUser.name === 'Student Borrower' || req.dbUser.name !== borrowerName)) {
+      req.dbUser.name = borrowerName;
+      if (borrowerEmail && (!req.dbUser.email || req.dbUser.email.includes('placeholder.local'))) {
+        req.dbUser.email = borrowerEmail;
+      }
+      await req.dbUser.save();
     }
 
     const start = new Date(startDate);
@@ -92,6 +116,8 @@ router.post('/', requireUser, async (req, res, next) => {
       equipment: equipmentId,
       message: `Requested ${equipment.name}`,
     });
+
+    await booking.populate('equipment user');
 
     res.status(201).json(booking);
   } catch (err) {
@@ -145,12 +171,15 @@ router.post('/:id/pickup-condition', requireUser, async (req, res, next) => {
       return res.status(400).json({ error: `Booking must be "approved" to record pickup, got "${booking.status}"` });
     }
 
-    const { photos = [], notes } = req.body;
+    const { photos = [], notes, condition = 'good' } = req.body;
     if (!photos.length) return res.status(400).json({ error: 'At least one photo is required' });
+
+    const conditionNormalized = String(condition).toLowerCase();
 
     booking.pickupCondition = {
       photos,
       notes,
+      condition: conditionNormalized,
       recordedBy: req.dbUser._id,
       recordedAt: new Date(),
     };
@@ -162,9 +191,17 @@ router.post('/:id/pickup-condition', requireUser, async (req, res, next) => {
       type: 'pickup_recorded',
       booking: booking._id,
       equipment: booking.equipment,
-      message: 'Pickup condition recorded',
+      message: `Pickup inspection recorded (${conditionNormalized.toUpperCase()})`,
+      conditionReport: {
+        type: 'pickup',
+        condition: conditionNormalized,
+        photos,
+        notes,
+        recordedAt: new Date(),
+      },
     });
 
+    await booking.populate('equipment user');
     res.json(booking);
   } catch (err) {
     next(err);
@@ -185,8 +222,10 @@ router.post('/:id/return-condition', requireUser, async (req, res, next) => {
       return res.status(400).json({ error: `Booking must be "active" to record return, got "${booking.status}"` });
     }
 
-    const { photos = [], notes } = req.body;
+    const { photos = [], notes, condition = 'good' } = req.body;
     if (!photos.length) return res.status(400).json({ error: 'At least one photo is required' });
+
+    const conditionNormalized = String(condition).toLowerCase();
 
     // AI hook — services/aiCondition.js is a stub; swap its implementation
     // and nothing here has to change.
@@ -198,6 +237,7 @@ router.post('/:id/return-condition', requireUser, async (req, res, next) => {
     booking.returnCondition = {
       photos,
       notes,
+      condition: conditionNormalized,
       aiSimilarityScore: similarityScore,
       aiFlagged: flagged,
       recordedBy: req.dbUser._id,
@@ -214,12 +254,32 @@ router.post('/:id/return-condition', requireUser, async (req, res, next) => {
     booking.status = 'returned';
     await booking.save();
 
+    // Reset equipment availability to available and update condition rating
+    const equipment = await Equipment.findById(booking.equipment);
+    if (equipment) {
+      equipment.availability = 'available';
+      if (['good', 'fair', 'poor', 'under_repair'].includes(conditionNormalized)) {
+        equipment.condition.status = conditionNormalized;
+        if (notes) equipment.condition.notes = notes;
+      }
+      await equipment.save();
+    }
+
     await ActivityLog.create({
       user: booking.user,
       type: 'return_recorded',
       booking: booking._id,
       equipment: booking.equipment,
-      message: 'Return condition recorded',
+      message: `Return inspection recorded (${conditionNormalized.toUpperCase()})`,
+      conditionReport: {
+        type: 'return',
+        condition: conditionNormalized,
+        photos,
+        notes,
+        aiSimilarityScore: similarityScore,
+        aiFlagged: flagged,
+        recordedAt: new Date(),
+      },
     });
 
     if (flagged) {
@@ -228,10 +288,20 @@ router.post('/:id/return-condition', requireUser, async (req, res, next) => {
         type: 'condition_flagged',
         booking: booking._id,
         equipment: booking.equipment,
-        message: 'Condition flagged for admin review',
+        message: 'Discrepancy flagged by AI inspection check',
+        conditionReport: {
+          type: 'return',
+          condition: 'damaged',
+          photos,
+          notes: notes ? `AI condition discrepancy detected. Notes: ${notes}` : 'Discrepancy detected between pickup and return photos',
+          aiSimilarityScore: similarityScore,
+          aiFlagged: true,
+          recordedAt: new Date(),
+        },
       });
     }
 
+    await booking.populate('equipment user');
     res.json(booking);
   } catch (err) {
     next(err);

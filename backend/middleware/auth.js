@@ -16,17 +16,26 @@ async function requireUser(req, res, next) {
     const userId = req.auth?.userId;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
+    const clientName = req.headers['x-user-name'] 
+      ? decodeURIComponent(req.headers['x-user-name']) 
+      : (req.body?.borrowerName || req.body?.name);
+    const clientEmail = req.headers['x-user-email'] 
+      ? decodeURIComponent(req.headers['x-user-email']) 
+      : (req.body?.borrowerEmail || req.body?.email);
+
     let user = await User.findOne({ clerkId: userId });
     if (!user) {
-      // First authenticated request from this Clerk identity — sync a
-      // profile. req.auth doesn't carry email/name by default; pass them
-      // from the frontend on first call, or backfill later via a Clerk
-      // webhook (user.created) if you have time for it post-hackathon.
       user = await User.create({
         clerkId: userId,
-        email: req.body?.email || `${userId}@placeholder.local`,
-        name: req.body?.name,
+        email: clientEmail || `${userId}@placeholder.local`,
+        name: clientName || 'Campus Borrower',
       });
+    } else if (clientName && (!user.name || user.name === 'Student Borrower' || user.name === 'Campus Borrower' || user.name !== clientName)) {
+      user.name = clientName;
+      if (clientEmail && (!user.email || user.email.includes('placeholder.local'))) {
+        user.email = clientEmail;
+      }
+      await user.save();
     }
     req.dbUser = user;
     next();

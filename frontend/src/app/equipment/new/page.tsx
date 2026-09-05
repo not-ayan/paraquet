@@ -122,7 +122,7 @@ export default function NewEquipmentPage() {
   };
 
   return (
-    <div className="container-custom py-8 sm:py-12 max-w-3xl space-y-6">
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-6">
       
       {/* Back Link */}
       <Link
@@ -266,10 +266,10 @@ export default function NewEquipmentPage() {
             </div>
 
             {/* Direct File Picker & URL Input */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <label className="flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-dashed border-[#E2E2DE] hover:border-[#111110] rounded-xl bg-white cursor-pointer transition-colors text-fluid-body font-semibold text-[#111110]">
-                <Plus className="w-4 h-4" />
-                <span>{isUploadingImage ? 'Uploading to Cloudinary...' : 'Upload Image File'}</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="flex items-center justify-center gap-2 px-4 h-[46px] border-2 border-dashed border-[#E2E2DE] hover:border-[#111110] rounded-xl bg-white cursor-pointer transition-colors text-fluid-body font-semibold text-[#111110]">
+                <Plus className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">{isUploadingImage ? 'Uploading to Cloudinary...' : 'Upload Image File'}</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -285,12 +285,12 @@ export default function NewEquipmentPage() {
                   value={newImageUrl}
                   onChange={(e) => setNewImageUrl(e.target.value)}
                   placeholder="Or paste image URL..."
-                  className="input-paraquet text-fluid-body flex-grow"
+                  className="input-paraquet text-fluid-body flex-grow h-[46px]"
                 />
                 <button
                   type="button"
                   onClick={handleAddImage}
-                  className="btn-secondary text-xs px-4 whitespace-nowrap"
+                  className="btn-secondary text-xs px-4 h-[46px] whitespace-nowrap"
                 >
                   Add URL
                 </button>
@@ -344,7 +344,7 @@ export default function NewEquipmentPage() {
                     copy[idx].key = e.target.value;
                     setSpecs(copy);
                   }}
-                  className="input-paraquet text-fluid-body w-1/3"
+                  className="input-paraquet text-fluid-body w-1/3 min-w-0"
                 />
                 <input
                   type="text"
@@ -355,12 +355,12 @@ export default function NewEquipmentPage() {
                     copy[idx].value = e.target.value;
                     setSpecs(copy);
                   }}
-                  className="input-paraquet text-fluid-body flex-grow"
+                  className="input-paraquet text-fluid-body flex-grow min-w-0"
                 />
                 <button
                   type="button"
                   onClick={() => handleRemoveSpec(idx)}
-                  className="p-2 text-[#70706B] hover:text-[#DC2626]"
+                  className="p-2 text-[#70706B] hover:text-[#DC2626] flex-shrink-0"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>

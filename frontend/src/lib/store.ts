@@ -45,7 +45,15 @@ export const CommuneStore = {
   },
 
   // --- EQUIPMENT ---
-  getAllEquipment(filters?: { category?: string; location?: string; status?: string; search?: string }): Equipment[] {
+  getAllEquipment(filters?: { 
+    category?: string; 
+    location?: string; 
+    status?: string; 
+    search?: string;
+    startDate?: string;
+    endDate?: string;
+    availableOnly?: boolean;
+  }): Equipment[] {
     let list = load<Equipment[]>(STORAGE_KEYS.EQUIPMENT, INITIAL_EQUIPMENT);
 
     if (filters?.search) {
@@ -66,6 +74,55 @@ export const CommuneStore = {
     if (filters?.location) {
       list = list.filter(e => e.location.toLowerCase().includes(filters.location!.toLowerCase()));
     }
+
+    // Evaluate date-wise availability if dates are provided
+    if (filters?.startDate && filters?.endDate) {
+      const reqStart = new Date(filters.startDate).getTime();
+      const reqEnd = new Date(filters.endDate).getTime();
+
+      if (!isNaN(reqStart) && !isNaN(reqEnd)) {
+        const allBookings = this.getAllBookings();
+
+        list = list.map(item => {
+          const itemConflicts = allBookings.filter(b => {
+            if (b.equipmentId !== item.id) return false;
+            if (b.status === 'REJECTED' || b.status === 'CANCELLED') return false;
+            const bStart = new Date(b.startDateTime).getTime();
+            const bEnd = new Date(b.endDateTime).getTime();
+            return bStart < reqEnd && bEnd > reqStart;
+          });
+
+          const isUnderMaintenance = item.availabilityStatus === 'MAINTENANCE' || (item as any).availability === 'maintenance';
+          const isRetired = item.availabilityStatus === 'RETIRED' || (item as any).availability === 'retired';
+          const hasConflict = itemConflicts.length > 0;
+          const isAvailable = !isUnderMaintenance && !isRetired && !hasConflict;
+
+          let conflictReason = undefined;
+          if (isUnderMaintenance) conflictReason = 'Under maintenance';
+          else if (isRetired) conflictReason = 'Equipment retired';
+          else if (hasConflict) {
+            const c = itemConflicts[0];
+            const s = new Date(c.startDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const e = new Date(c.endDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            conflictReason = `Booked (${s} – ${e})`;
+          }
+
+          return {
+            ...item,
+            dateAvailability: {
+              isAvailable,
+              conflictReason,
+              conflictCount: itemConflicts.length,
+            },
+          };
+        });
+
+        if (filters.availableOnly) {
+          list = list.filter(e => e.dateAvailability?.isAvailable);
+        }
+      }
+    }
+
     return list;
   },
 
@@ -141,23 +198,26 @@ export const CommuneStore = {
     startDateTime: string;
     endDateTime: string;
     purpose: string;
+    equipmentName?: string;
+    equipmentImage?: string;
+    borrowerName?: string;
+    borrowerEmail?: string;
   }): { success: boolean; booking?: Booking; error?: string } {
     const equipment = this.getEquipmentById(data.equipmentId);
-    if (!equipment) return { success: false, error: 'Equipment not found.' };
-    if (equipment.approvalStatus !== 'APPROVED') return { success: false, error: 'Equipment is not approved for borrowing.' };
-    if (equipment.availabilityStatus !== 'AVAILABLE') return { success: false, error: 'Equipment is currently unavailable.' };
+    if (equipment && equipment.approvalStatus !== 'APPROVED') return { success: false, error: 'Equipment is not approved for borrowing.' };
+    if (equipment && equipment.availabilityStatus !== 'AVAILABLE') return { success: false, error: 'Equipment is currently unavailable.' };
 
     const user = this.getUser();
     const list = this.getAllBookings();
 
     const newBooking: Booking = {
       id: `bk-${Date.now().toString(36)}`,
-      equipmentId: equipment.id,
-      equipmentName: equipment.name,
-      equipmentImage: equipment.images[0] || '',
+      equipmentId: data.equipmentId,
+      equipmentName: equipment?.name || data.equipmentName || 'Campus Equipment',
+      equipmentImage: equipment?.images[0] || data.equipmentImage || '',
       borrowerId: user.clerkId,
-      borrowerName: user.name,
-      borrowerEmail: user.email,
+      borrowerName: data.borrowerName || user.name,
+      borrowerEmail: data.borrowerEmail || user.email,
       startDateTime: data.startDateTime,
       endDateTime: data.endDateTime,
       purpose: data.purpose,
@@ -173,7 +233,7 @@ export const CommuneStore = {
       action: 'BOOKING_CREATED',
       entityType: 'BOOKING',
       entityId: newBooking.id,
-      entityName: equipment.name,
+      entityName: newBooking.equipmentName,
     });
 
     return { success: true, booking: newBooking };
@@ -251,6 +311,18 @@ export const CommuneStore = {
       entityType: 'CONDITION_REPORT',
       entityId: report.id,
       entityName: `${list[idx].equipmentName} (${data.type})`,
+      equipmentImage: list[idx].equipmentImage,
+      message: `${data.type === 'PICKUP' ? 'Pickup' : 'Return'} inspection recorded (${data.condition})`,
+      conditionReport: {
+        type: data.type,
+        condition: data.condition,
+        photos: [data.photoUrl],
+        notes: data.notes,
+        aiFlagged: data.condition === 'DAMAGED',
+        aiSimilarityScore: data.condition === 'DAMAGED' ? 0.62 : 0.98,
+        recordedAt: report.reportedAt,
+        recordedBy: user.name,
+      },
     });
 
     return report;
@@ -300,6 +372,35 @@ export const CommuneStore = {
       entityName: `${list[idx].name} (Reason: ${reason || 'Not specified'})`,
     });
     return true;
+  },
+
+  // WEB-C08: Change History Status Update
+  updateEquipmentStatus(equipmentId: string, status: string, reason: string, authorName: string = 'Community Steward'): Equipment | null {
+    const list = load<Equipment[]>(STORAGE_KEYS.EQUIPMENT, INITIAL_EQUIPMENT);
+    const idx = list.findIndex(e => e.id === equipmentId);
+    if (idx === -1) return null;
+
+    const previousValue = (list[idx].availabilityStatus || 'AVAILABLE').toLowerCase();
+    const newValue = status.toLowerCase();
+
+    list[idx].availabilityStatus = newValue.toUpperCase() as any;
+
+    const historyRecord = {
+      previousValue,
+      newValue,
+      reason: reason.trim(),
+      changedAt: new Date().toISOString(),
+      changedByName: authorName,
+    };
+
+    if (!Array.isArray(list[idx].statusHistory)) {
+      list[idx].statusHistory = [];
+    }
+    list[idx].statusHistory!.unshift(historyRecord);
+
+    save(STORAGE_KEYS.EQUIPMENT, list);
+
+    return list[idx];
   },
 
   getPendingBookings(): Booking[] {

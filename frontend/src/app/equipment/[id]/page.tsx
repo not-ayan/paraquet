@@ -9,23 +9,83 @@ import {
   Clock, 
   CheckCircle2, 
   AlertCircle,
-  UserCheck
+  AlertTriangle,
+  UserCheck,
+  Camera,
+  ZoomIn,
+  X,
+  History,
+  ArrowRight,
+  Wrench,
 } from 'lucide-react';
+import { useUser } from '@clerk/nextjs';
 import { apiClient } from '@/lib/api';
-import { Equipment } from '@/lib/types';
+import { Equipment, Booking, ActivityLog } from '@/lib/types';
+import AvailabilityCalendar from '@/components/AvailabilityCalendar';
 
 export default function EquipmentDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = params?.id as string;
+  const { user: clerkUser } = useUser();
 
   const [equipment, setEquipment] = useState<Equipment | null>(null);
+  const [equipmentBookings, setEquipmentBookings] = useState<Booking[]>([]);
+  const [equipmentActivity, setEquipmentActivity] = useState<ActivityLog[]>([]);
+  const [selectedPhotoPreview, setSelectedPhotoPreview] = useState<{ url: string; title: string } | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
+  // Status Change State (WEB-C08: Change History)
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [newStatusSelection, setNewStatusSelection] = useState<'available' | 'maintenance' | 'retired'>('maintenance');
+  const [statusChangeReason, setStatusChangeReason] = useState('');
+  const [isSubmittingStatus, setIsSubmittingStatus] = useState(false);
+  const [statusModalError, setStatusModalError] = useState<string | null>(null);
+
+  const handleStatusChangeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!statusChangeReason.trim()) {
+      setStatusModalError('Please provide a justification reason for this status change.');
+      return;
+    }
+
+    setIsSubmittingStatus(true);
+    setStatusModalError(null);
+
+    try {
+      const updated = await apiClient.updateEquipmentStatus(
+        equipment!.id,
+        newStatusSelection,
+        statusChangeReason.trim()
+      );
+      setEquipment(updated);
+      setIsStatusModalOpen(false);
+      setStatusChangeReason('');
+    } catch (err: any) {
+      setStatusModalError(err.message || 'Failed to update equipment status');
+    } finally {
+      setIsSubmittingStatus(false);
+    }
+  };
+
   // Booking Form State
-  const [startDate, setStartDate] = useState('2026-09-10');
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  });
   const [startTime, setStartTime] = useState('10:00');
-  const [endDate, setEndDate] = useState('2026-09-12');
+  const [endDate, setEndDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 3);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  });
   const [endTime, setEndTime] = useState('18:00');
   const [purpose, setPurpose] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -47,6 +107,33 @@ export default function EquipmentDetailPage() {
           console.warn('Error loading equipment:', err);
           if (isMounted) setLoading(false);
         });
+
+      // Fetch all requests and schedules for this equipment
+      apiClient.getEquipmentBookings(id)
+        .then((bks) => {
+          if (isMounted) setEquipmentBookings(bks);
+        })
+        .catch((err) => {
+          console.warn('Error loading equipment bookings:', err);
+        });
+
+      // Fetch condition history & activity for this equipment
+      apiClient.getEquipmentActivity(id)
+        .then((acts) => {
+          if (isMounted) setEquipmentActivity(acts);
+        })
+        .catch((err) => {
+          console.warn('Error loading equipment activity:', err);
+        });
+
+      // Pre-fill booking dates if passed from catalogue search (?startDate=...&endDate=...)
+      if (typeof window !== 'undefined') {
+        const sp = new URLSearchParams(window.location.search);
+        const qStart = sp.get('startDate');
+        const qEnd = sp.get('endDate');
+        if (qStart) setStartDate(qStart);
+        if (qEnd) setEndDate(qEnd);
+      }
 
       return () => {
         isMounted = false;
@@ -72,7 +159,45 @@ export default function EquipmentDetailPage() {
     );
   }
 
-  const isAvailable = equipment.availabilityStatus === 'AVAILABLE' && equipment.approvalStatus === 'APPROVED';
+  const now = new Date();
+
+  // Active, approved, or overdue bookings
+  const activeOrApprovedBooking = equipmentBookings.find(b => 
+    b.status === 'ACTIVE' || b.status === 'APPROVED' || b.status === 'OVERDUE'
+  );
+
+  const isOverdue = Boolean(
+    activeOrApprovedBooking && (
+      activeOrApprovedBooking.status === 'OVERDUE' ||
+      (activeOrApprovedBooking.status === 'ACTIVE' && new Date(activeOrApprovedBooking.endDateTime) < now)
+    )
+  );
+
+  const isCurrentlyWithUser = Boolean(activeOrApprovedBooking);
+
+  // Check collision with user selected dates
+  const selectedStart = new Date(`${startDate}T${startTime}:00Z`);
+  const selectedEnd = new Date(`${endDate}T${endTime}:00Z`);
+  const hasValidDateRange = !isNaN(selectedStart.getTime()) && !isNaN(selectedEnd.getTime()) && selectedStart < selectedEnd;
+
+  // Pending request collision (write nothing on main card, but show warning when picking same dates)
+  const pendingCollision = hasValidDateRange ? equipmentBookings.find(b => 
+    b.status === 'PENDING' &&
+    new Date(b.startDateTime) < selectedEnd &&
+    new Date(b.endDateTime) > selectedStart
+  ) : null;
+
+  // Approved or Active booking collision (blocks booking)
+  const approvedCollision = hasValidDateRange ? equipmentBookings.find(b => 
+    (b.status === 'ACTIVE' || b.status === 'APPROVED' || b.status === 'OVERDUE') &&
+    new Date(b.startDateTime) < selectedEnd &&
+    new Date(b.endDateTime) > selectedStart
+  ) : null;
+
+  const isAvailable = equipment.availabilityStatus === 'AVAILABLE' && 
+                      equipment.approvalStatus === 'APPROVED' && 
+                      !isOverdue && 
+                      !approvedCollision;
 
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,17 +206,29 @@ export default function EquipmentDetailPage() {
       return;
     }
 
+    if (approvedCollision) {
+      setBookingError(`This equipment is already reserved by ${approvedCollision.borrowerName} for these dates.`);
+      return;
+    }
+
     setIsSubmitting(true);
     setBookingError(null);
 
-    const startDateTime = new Date(`${startDate}T${startTime}:00Z`).toISOString();
-    const endDateTime = new Date(`${endDate}T${endTime}:00Z`).toISOString();
+    const startDateTime = selectedStart.toISOString();
+    const endDateTime = selectedEnd.toISOString();
+
+    const borrowerName = clerkUser?.fullName || clerkUser?.firstName || clerkUser?.username || 'Verified Student';
+    const borrowerEmail = clerkUser?.primaryEmailAddress?.emailAddress || '';
 
     const res = await apiClient.createBooking({
       equipmentId: equipment.id,
       startDateTime,
       endDateTime,
       purpose,
+      equipmentName: equipment.name,
+      equipmentImage: equipment.images?.[0],
+      borrowerName,
+      borrowerEmail,
     });
 
     setIsSubmitting(false);
@@ -202,27 +339,226 @@ export default function EquipmentDetailPage() {
 
           </div>
 
+          {/* Availability Calendar & Schedule */}
+          <AvailabilityCalendar
+            bookings={equipmentBookings}
+            selectedStartDate={startDate}
+            selectedEndDate={endDate}
+            onSelectDateRange={(start, end) => {
+              setStartDate(start);
+              setEndDate(end);
+            }}
+            maxBorrowDays={equipment.maxBorrowDays || 3}
+          />
+
+          {/* Condition History & Handover Evidence */}
+          {equipmentActivity.filter(a => Boolean(a.conditionReport)).length > 0 && (
+            <div className="card-paraquet p-6 sm:p-8 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Camera className="w-5 h-5 text-[#111110]" />
+                    <h3 className="text-fluid-h3 font-bold text-[#111110]">
+                      Condition History & Inspection Evidence
+                    </h3>
+                  </div>
+                  <p className="text-fluid-micro text-[#70706B]">
+                    Visual condition records uploaded during student pickups and returns.
+                  </p>
+                </div>
+                <span className="badge-pill badge-available">
+                  {equipmentActivity.filter(a => Boolean(a.conditionReport)).length} Reports
+                </span>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                {equipmentActivity
+                  .filter(a => Boolean(a.conditionReport))
+                  .map((act) => {
+                    const cr = act.conditionReport!;
+                    const dateFormatted = new Date(act.createdAt).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    });
+
+                    return (
+                      <div key={act.id} className="p-4 bg-[#F9F9F8] border border-[#EDEDEA] rounded-2xl space-y-3">
+                        <div className="flex items-center justify-between flex-wrap gap-2 text-fluid-micro">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-[#111110]">
+                              {cr.type === 'PICKUP' ? '📸 Pickup Check' : '🔄 Return Check'}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              cr.condition === 'EXCELLENT' ? 'bg-[#E8F5EB] text-[#1B7A42]' :
+                              cr.condition === 'GOOD' ? 'bg-[#EFF6FF] text-[#1E40AF]' :
+                              cr.condition === 'FAIR' ? 'bg-[#FEF9C3] text-[#854D0E]' :
+                              'bg-[#FEE2E2] text-[#991B1B]'
+                            }`}>
+                              {cr.condition}
+                            </span>
+                          </div>
+                          <span className="text-[#70706B]">{dateFormatted}</span>
+                        </div>
+
+                        {cr.notes && (
+                          <p className="text-fluid-micro text-[#70706B] italic">
+                            "{cr.notes}"
+                          </p>
+                        )}
+
+                        {cr.photos && cr.photos.length > 0 && (
+                          <div className="flex items-center gap-2 pt-1">
+                            {cr.photos.map((photo, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => setSelectedPhotoPreview({ url: photo, title: `${equipment.name} (${cr.type})` })}
+                                className="relative group w-14 h-14 rounded-xl overflow-hidden border border-[#E2E2DE] hover:border-[#111110] transition-all flex-shrink-0"
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={photo} alt="condition" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
+                                  <ZoomIn className="w-4 h-4" />
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
+
+          {/* WEB-C08: Status Change History Card */}
+          <div className="card-paraquet p-6 space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <History className="w-4 h-4 text-[#111110]" />
+                <h3 className="text-fluid-body font-bold text-[#111110]">
+                  Status Change History
+                </h3>
+                <span className="text-[10px] font-bold px-2 py-0.5 bg-[#F0F0EE] text-[#70706B] rounded-full border border-[#E2E2DE]">
+                  WEB-C08
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusModalError(null);
+                  setIsStatusModalOpen(true);
+                }}
+                className="btn-secondary text-fluid-micro py-1.5 px-3 inline-flex items-center gap-1.5 hover:border-[#111110]"
+              >
+                <Wrench className="w-3.5 h-3.5" />
+                <span>Update Status</span>
+              </button>
+            </div>
+
+            <p className="text-fluid-micro text-[#70706B]">
+              Audit history of availability & maintenance transitions, tracking previous status, new status, timestamp, and justification reason.
+            </p>
+
+            {equipment.statusHistory && equipment.statusHistory.length > 0 ? (
+              <div className="space-y-3 pt-1">
+                {equipment.statusHistory.map((rec, idx) => {
+                  const dateObj = new Date(rec.changedAt);
+                  const formattedDate = !isNaN(dateObj.getTime())
+                    ? dateObj.toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    : rec.changedAt;
+
+                  const getStatusBadge = (val: string) => {
+                    const v = (val || '').toLowerCase();
+                    if (v === 'available') {
+                      return <span className="badge-pill badge-available uppercase text-[10px]">{val}</span>;
+                    }
+                    if (v === 'maintenance') {
+                      return <span className="badge-pill bg-[#FEF9C3] text-[#854D0E] uppercase text-[10px] border border-[#FDE047]">{val}</span>;
+                    }
+                    if (v === 'retired') {
+                      return <span className="badge-pill bg-[#FEE2E2] text-[#991B1B] uppercase text-[10px] border border-[#FCA5A5]">{val}</span>;
+                    }
+                    return <span className="badge-pill badge-neutral uppercase text-[10px]">{val}</span>;
+                  };
+
+                  return (
+                    <div
+                      key={idx}
+                      className="p-4 bg-[#F9F9F8] border border-[#EDEDEA] rounded-2xl space-y-2.5 transition-all hover:border-[#D0D0CC]"
+                    >
+                      <div className="flex items-center justify-between flex-wrap gap-2 text-fluid-micro">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] text-[#70706B] font-medium">Transition:</span>
+                          {getStatusBadge(rec.previousValue)}
+                          <ArrowRight className="w-3.5 h-3.5 text-[#70706B]" />
+                          {getStatusBadge(rec.newValue)}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 text-[#70706B] text-[11px]">
+                          <Clock className="w-3 h-3" />
+                          <span>{formattedDate}</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white border border-[#EAEAE6] p-3 rounded-xl shadow-2xs">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#70706B] block mb-1">
+                          Justification Reason
+                        </span>
+                        <p className="text-fluid-micro text-[#111110] italic">
+                          "{rec.reason}"
+                        </p>
+                      </div>
+
+                      <div className="text-[10px] text-[#70706B] flex items-center justify-between pt-0.5">
+                        <span>Logged by: <strong className="text-[#111110] font-semibold">{rec.changedByName || 'Community Steward'}</strong></span>
+                        <span className="text-[9px] text-[#9E9E9A] font-mono">Record #{equipment.statusHistory!.length - idx}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-4 bg-[#F9F9F8] border border-[#EDEDEA] rounded-2xl text-center space-y-1">
+                <p className="text-fluid-micro text-[#70706B]">
+                  No previous status transitions recorded for this equipment.
+                </p>
+                <span className="text-[11px] font-bold text-[#1B7A42]">
+                  Current Status: {(equipment.availabilityStatus || 'AVAILABLE').toUpperCase()}
+                </span>
+              </div>
+            )}
+          </div>
+
           {/* Steward Card */}
-          <div className="card-paraquet p-5 flex items-center justify-between">
-            <div className="flex items-center gap-3.5">
+          <div className="card-paraquet p-5 flex flex-wrap sm:flex-nowrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5 min-w-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={equipment.ownerAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'}
                 alt={equipment.ownerName}
-                className="w-12 h-12 rounded-full object-cover"
+                className="w-12 h-12 rounded-full object-cover flex-shrink-0"
               />
-              <div>
+              <div className="min-w-0">
                 <span className="text-fluid-micro text-[#70706B] block">Equipment Steward</span>
-                <h4 className="text-fluid-body font-bold text-[#111110]">
+                <h4 className="text-fluid-body font-bold text-[#111110] truncate">
                   {equipment.ownerName}
                 </h4>
                 <span className="text-fluid-micro text-[#1B7A42] font-semibold flex items-center gap-1 mt-0.5">
-                  <UserCheck className="w-3.5 h-3.5" /> Verified Community Lender
+                  <UserCheck className="w-3.5 h-3.5 flex-shrink-0" /> Verified Community Lender
                 </span>
               </div>
             </div>
 
-            <div className="text-right text-fluid-micro text-[#70706B]">
+            <div className="text-left sm:text-right text-fluid-micro text-[#70706B] flex-shrink-0">
               <span className="block font-medium">Condition</span>
               <span className="badge-pill badge-available mt-1">
                 {equipment.currentCondition}
@@ -242,10 +578,14 @@ export default function EquipmentDetailPage() {
                 <span className="text-fluid-micro uppercase font-bold tracking-wider text-[#70706B]">
                   Loan Request
                 </span>
-                {equipment.approvalStatus === 'APPROVED' && equipment.availabilityStatus === 'AVAILABLE' ? (
+                {isOverdue ? (
+                  <span className="badge-pill badge-rejected font-bold">● Overdue Loan</span>
+                ) : isCurrentlyWithUser ? (
+                  <span className="badge-pill badge-booked font-semibold">● In Use (with {activeOrApprovedBooking?.borrowerName})</span>
+                ) : equipment.approvalStatus === 'APPROVED' && equipment.availabilityStatus === 'AVAILABLE' ? (
                   <span className="badge-pill badge-available">Available to Borrow</span>
                 ) : (
-                  <span className="badge-pill badge-booked">Currently In Use</span>
+                  <span className="badge-pill badge-unavailable">Currently In Use</span>
                 )}
               </div>
 
@@ -257,6 +597,29 @@ export default function EquipmentDetailPage() {
                 Max recommended loan: {equipment.maxBorrowDays || 3} days
               </p>
             </div>
+
+            {/* Active / Approved / Overdue Custody Details */}
+            {isOverdue && activeOrApprovedBooking ? (
+              <div className="p-3.5 bg-[#FEE2E2] border border-[#FCA5A5] rounded-xl text-fluid-micro text-[#991B1B] space-y-1">
+                <div className="flex items-center gap-1.5 font-bold text-sm text-[#DC2626]">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>OVERDUE LOAN</span>
+                </div>
+                <p className="leading-relaxed">
+                  Currently in possession of <strong>{activeOrApprovedBooking.borrowerName}</strong>. This equipment was scheduled for return on {new Date(activeOrApprovedBooking.endDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at {new Date(activeOrApprovedBooking.endDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.
+                </p>
+              </div>
+            ) : isCurrentlyWithUser && activeOrApprovedBooking ? (
+              <div className="p-3.5 bg-[#EBF5FF] border border-[#BFDBFE] rounded-xl text-fluid-micro text-[#1E40AF] space-y-1">
+                <div className="flex items-center gap-1.5 font-bold text-sm text-[#2563EB]">
+                  <UserCheck className="w-4 h-4 flex-shrink-0" />
+                  <span>{activeOrApprovedBooking.status === 'ACTIVE' ? 'Currently Checked Out' : 'Approved Reservation'}</span>
+                </div>
+                <p className="leading-relaxed">
+                  Currently with <strong>{activeOrApprovedBooking.borrowerName}</strong> until {new Date(activeOrApprovedBooking.endDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ({new Date(activeOrApprovedBooking.endDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}).
+                </p>
+              </div>
+            ) : null}
 
             {bookingSuccess ? (
               <div className="p-6 bg-[#E8F5EB] rounded-2xl text-center space-y-2.5 animate-in zoom-in-95">
@@ -272,7 +635,7 @@ export default function EquipmentDetailPage() {
               <form onSubmit={handleBookingSubmit} className="space-y-4 pt-1">
                 
                 {/* Dates */}
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <label className="block text-fluid-micro uppercase font-bold tracking-wider text-[#70706B]">
                     Pickup Date & Time
                   </label>
@@ -281,20 +644,20 @@ export default function EquipmentDetailPage() {
                       type="date"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="input-paraquet text-fluid-body"
+                      className="input-paraquet input-date-time text-xs sm:text-sm"
                       required
                     />
                     <input
                       type="time"
                       value={startTime}
                       onChange={(e) => setStartTime(e.target.value)}
-                      className="input-paraquet text-fluid-body"
+                      className="input-paraquet input-date-time text-xs sm:text-sm"
                       required
                     />
                   </div>
                 </div>
 
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <label className="block text-fluid-micro uppercase font-bold tracking-wider text-[#70706B]">
                     Return Date & Time
                   </label>
@@ -303,21 +666,47 @@ export default function EquipmentDetailPage() {
                       type="date"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      className="input-paraquet text-fluid-body"
+                      className="input-paraquet input-date-time text-xs sm:text-sm"
                       required
                     />
                     <input
                       type="time"
                       value={endTime}
                       onChange={(e) => setEndTime(e.target.value)}
-                      className="input-paraquet text-fluid-body"
+                      className="input-paraquet input-date-time text-xs sm:text-sm"
                       required
                     />
                   </div>
                 </div>
 
+                {/* Pending Request Date Collision Warning */}
+                {pendingCollision && !approvedCollision && (
+                  <div className="p-3 bg-[#FEF9C3] border border-[#FDE047] rounded-xl text-fluid-micro text-[#854D0E] flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5 text-[#CA8A04]" />
+                    <div className="space-y-0.5">
+                      <span className="font-bold block">Pending Request Conflict Warning</span>
+                      <p className="leading-relaxed">
+                        Another student has submitted a pending reservation for overlapping dates ({new Date(pendingCollision.startDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – {new Date(pendingCollision.endDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}). If approved, your request may collide.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Approved / Active Booking Collision Alert */}
+                {approvedCollision && (
+                  <div className="p-3 bg-[#FEE2E2] border border-[#FCA5A5] rounded-xl text-fluid-micro text-[#991B1B] flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-[#DC2626]" />
+                    <div className="space-y-0.5">
+                      <span className="font-bold block">Date Range Unavailable</span>
+                      <p className="leading-relaxed">
+                        This gear is already {approvedCollision.status === 'ACTIVE' ? 'checked out by' : 'approved for'} <strong>{approvedCollision.borrowerName}</strong> from {new Date(approvedCollision.startDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} to {new Date(approvedCollision.endDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}. Please select different dates.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Purpose */}
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <label className="block text-fluid-micro uppercase font-bold tracking-wider text-[#70706B]">
                     Academic / Project Purpose
                   </label>
@@ -342,10 +731,20 @@ export default function EquipmentDetailPage() {
                   type="submit"
                   disabled={isSubmitting || !isAvailable}
                   className={`w-full py-3 ${
-                    isAvailable ? 'btn-primary' : 'bg-[#E2E2DE] text-[#9C9C96] cursor-not-allowed rounded-full font-semibold text-fluid-body'
+                    isAvailable
+                      ? 'btn-primary'
+                      : 'inline-flex items-center justify-center bg-[#E2E2DE] text-[#9C9C96] cursor-not-allowed rounded-full font-semibold text-fluid-body'
                   }`}
                 >
-                  {isSubmitting ? 'Submitting Request...' : isAvailable ? 'Submit Reservation Request →' : 'Unavailable for Booking'}
+                  {isSubmitting 
+                    ? 'Submitting Request...' 
+                    : isOverdue 
+                      ? 'Currently Overdue' 
+                      : approvedCollision 
+                        ? 'Selected Dates Unavailable' 
+                        : isAvailable 
+                          ? 'Submit Reservation Request →' 
+                          : 'Unavailable for Booking'}
                 </button>
 
                 <p className="text-center text-fluid-micro text-[#70706B] pt-1">
@@ -360,6 +759,142 @@ export default function EquipmentDetailPage() {
         </div>
 
       </div>
+
+      {/* Condition Photo Lightbox Modal */}
+      {selectedPhotoPreview && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150"
+          onClick={() => setSelectedPhotoPreview(null)}
+        >
+          <div 
+            className="relative max-w-2xl w-full bg-[#111110] rounded-3xl overflow-hidden border border-white/20 shadow-2xl p-4 sm:p-5 space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between text-white px-1">
+              <div className="flex items-center gap-2 min-w-0">
+                <Camera className="w-4 h-4 text-white/80 flex-shrink-0" />
+                <span className="font-bold text-fluid-body truncate">{selectedPhotoPreview.title}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedPhotoPreview(null)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors flex-shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-black flex items-center justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img 
+                src={selectedPhotoPreview.url} 
+                alt={selectedPhotoPreview.title}
+                className="w-full h-full object-contain"
+              />
+            </div>
+
+            <p className="text-center text-fluid-micro text-white/70">
+              Verified condition handover proof • Click background or close button to exit
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* WEB-C08: Status Change Modal */}
+      {isStatusModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white border border-[#EDEDEA] rounded-3xl p-6 sm:p-8 max-w-lg w-full space-y-5 shadow-2xl animate-scale-in">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 bg-[#F0F0EE] rounded-xl text-[#111110]">
+                  <Wrench className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-fluid-body font-bold text-[#111110]">
+                    Update Equipment Status
+                  </h3>
+                  <p className="text-fluid-micro text-[#70706B]">
+                    Record status transition & audit justification (WEB-C08)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsStatusModalOpen(false)}
+                className="text-[#70706B] hover:text-[#111110] p-1.5 rounded-full hover:bg-[#F0F0EE] transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {statusModalError && (
+              <div className="p-3 bg-[#FEE2E2] border border-[#FCA5A5] rounded-xl text-fluid-micro text-[#991B1B] flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{statusModalError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleStatusChangeSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-fluid-micro font-bold text-[#111110] block">
+                  New Status
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['available', 'maintenance', 'retired'] as const).map((st) => (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() => setNewStatusSelection(st)}
+                      className={`py-2 px-3 rounded-xl border text-fluid-micro font-bold capitalize transition-all ${
+                        newStatusSelection === st
+                          ? 'border-[#111110] bg-[#111110] text-white shadow-sm'
+                          : 'border-[#E2E2DE] bg-[#F9F9F8] text-[#70706B] hover:border-[#111110] hover:text-[#111110]'
+                      }`}
+                    >
+                      {st}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-fluid-micro font-bold text-[#111110] block">
+                  Justification / Reason <span className="text-[#991B1B]">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  value={statusChangeReason}
+                  onChange={(e) => setStatusChangeReason(e.target.value)}
+                  placeholder="e.g., Scheduled bi-weekly sensor dust cleaning and optical calibration..."
+                  className="input-paraquet text-fluid-micro"
+                  required
+                />
+                <span className="text-[10px] text-[#70706B] block">
+                  A clear reason must be provided to maintain compliance with challenge card WEB-C08.
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsStatusModalOpen(false)}
+                  className="btn-secondary text-fluid-micro py-2 px-4"
+                  disabled={isSubmittingStatus}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary text-fluid-micro py-2 px-5"
+                  disabled={isSubmittingStatus}
+                >
+                  {isSubmittingStatus ? 'Saving Transition...' : 'Log & Update Status'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

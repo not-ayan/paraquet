@@ -71,10 +71,10 @@ export default function ConditionReportModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="bg-[#F5F5F3] border border-[#E2E2DE] w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
+      <div className="bg-[#F5F5F3] border border-[#E2E2DE] w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
         
         {/* Header */}
-        <div className="px-6 py-4 bg-[#EDEDEA] border-b border-[#E2E2DE] flex items-center justify-between">
+        <div className="px-6 py-4 bg-[#EDEDEA] border-b border-[#E2E2DE] flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-full bg-[#111110] text-white flex items-center justify-center">
               <Camera className="w-3.5 h-3.5" />
@@ -97,7 +97,7 @@ export default function ConditionReportModal({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-grow">
           
           {/* Condition Select */}
           <div className="space-y-1.5">

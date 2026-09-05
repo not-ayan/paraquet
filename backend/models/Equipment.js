@@ -41,6 +41,21 @@ const equipmentSchema = new Schema(
     },
 
     addedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+
+    /**
+     * WEB-C08: Change History for Equipment Availability/Maintenance status.
+     * Stores previous value, new value, timestamp, reason, and author.
+     */
+    statusHistory: [
+      {
+        previousValue: { type: String, required: true },
+        newValue: { type: String, required: true },
+        reason: { type: String, required: true },
+        changedAt: { type: Date, default: Date.now },
+        changedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+        changedByName: { type: String, default: 'Community Steward' },
+      },
+    ],
   },
   { timestamps: true }
 );
