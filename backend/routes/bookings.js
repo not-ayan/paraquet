@@ -8,6 +8,13 @@ const {
   sendPickupConfirmedEmail,
   sendReturnConfirmedEmail,
 } = require('../services/email');
+const {
+  isValidObjectId,
+  sanitizeString,
+  sanitizeEmail,
+  sanitizeDate,
+  sanitizeArray,
+} = require('../lib/sanitize');
 
 const router = express.Router();
 
@@ -48,8 +55,13 @@ router.get('/me', requireUser, async (req, res, next) => {
 // GET /api/bookings/equipment/:equipmentId — public schedule for equipment
 router.get('/equipment/:equipmentId', async (req, res, next) => {
   try {
+    const { equipmentId } = req.params;
+    if (!isValidObjectId(equipmentId)) {
+      return res.status(400).json({ error: 'Invalid equipment ID format' });
+    }
+
     const bookings = await Booking.find({
-      equipment: req.params.equipmentId,
+      equipment: equipmentId,
       status: { $in: ['pending', 'approved', 'active', 'overdue'] },
     })
       .populate('user', 'name email avatarUrl clerkId')
@@ -64,13 +76,18 @@ router.get('/equipment/:equipmentId', async (req, res, next) => {
 // GET /api/bookings/:id
 router.get('/:id', requireUser, async (req, res, next) => {
   try {
-    const booking = await Booking.findById(req.params.id).populate('equipment user').lean();
-    if (!booking) return res.status(404).json({ error: 'Not found' });
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ error: 'Invalid booking ID format' });
+    }
+
+    const booking = await Booking.findById(id).populate('equipment user').lean();
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
 
     const ownerId = booking.user?._id ? booking.user._id.toString() : booking.user?.toString();
     const isOwner = ownerId === req.dbUser._id.toString();
     if (!isOwner && req.dbUser.role !== 'admin') {
-      return res.status(403).json({ error: 'Not allowed' });
+      return res.status(403).json({ error: 'Not authorized to view this booking.' });
     }
     res.json(booking);
   } catch (err) {
@@ -81,10 +98,25 @@ router.get('/:id', requireUser, async (req, res, next) => {
 // POST /api/bookings
 router.post('/', requireUser, async (req, res, next) => {
   try {
-    const { equipmentId, startDate, endDate, location, purpose, borrowerName, borrowerEmail } = req.body;
-    if (!equipmentId || !startDate || !endDate) {
-      return res.status(400).json({ error: 'equipmentId, startDate, endDate are required' });
+    const equipmentId = req.body.equipmentId;
+    if (!isValidObjectId(equipmentId)) {
+      return res.status(400).json({ error: 'Valid equipmentId is required' });
     }
+
+    const start = sanitizeDate(req.body.startDate);
+    const end = sanitizeDate(req.body.endDate);
+    if (!start || !end) {
+      return res.status(400).json({ error: 'Valid startDate and endDate in ISO/Date format are required' });
+    }
+
+    if (!(start < end)) {
+      return res.status(400).json({ error: 'startDate must be before endDate' });
+    }
+
+    const location = sanitizeString(req.body.location, 200);
+    const purpose = sanitizeString(req.body.purpose, 500) || 'Academic / Project Work';
+    const borrowerName = sanitizeString(req.body.borrowerName, 100);
+    const borrowerEmail = sanitizeEmail(req.body.borrowerEmail);
 
     // Sync borrower name to user profile if provided
     if (borrowerName && (!req.dbUser.name || req.dbUser.name === 'Student Borrower' || req.dbUser.name !== borrowerName)) {
@@ -95,15 +127,9 @@ router.post('/', requireUser, async (req, res, next) => {
       await req.dbUser.save();
     }
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    if (!(start < end)) {
-      return res.status(400).json({ error: 'startDate must be before endDate' });
-    }
-
     const equipment = await Equipment.findById(equipmentId);
     if (!equipment || equipment.approvalStatus !== 'approved') {
-      return res.status(404).json({ error: 'Equipment not available' });
+      return res.status(404).json({ error: 'Equipment is not approved or unavailable' });
     }
 
     // Owner protection: prevent listing owners from borrowing their own gear
@@ -118,7 +144,7 @@ router.post('/', requireUser, async (req, res, next) => {
     }
 
     if (await hasConflict(equipmentId, start, end)) {
-      return res.status(409).json({ error: 'Equipment already booked for that window' });
+      return res.status(409).json({ error: 'Equipment is already reserved or booked for that date range' });
     }
 
     const booking = await Booking.create({
@@ -127,7 +153,7 @@ router.post('/', requireUser, async (req, res, next) => {
       startDate: start,
       endDate: end,
       location: location || equipment.location || 'Tezpur University, Assam (Central Lab)',
-      purpose: purpose || 'Academic / Project Work',
+      purpose,
     });
 
     await ActivityLog.create({
@@ -157,19 +183,25 @@ router.post('/', requireUser, async (req, res, next) => {
 // PATCH /api/bookings/:id/cancel
 router.patch('/:id/cancel', requireUser, async (req, res, next) => {
   try {
-    const booking = await Booking.findById(req.params.id);
-    if (!booking) return res.status(404).json({ error: 'Not found' });
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ error: 'Invalid booking ID format' });
+    }
+
+    const booking = await Booking.findById(id);
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
 
     const isOwner = booking.user.toString() === req.dbUser._id.toString();
     if (!isOwner && req.dbUser.role !== 'admin') {
-      return res.status(403).json({ error: 'Not allowed' });
+      return res.status(403).json({ error: 'Not authorized to cancel this booking.' });
     }
     if (!['pending', 'approved'].includes(booking.status)) {
       return res.status(400).json({ error: `Cannot cancel a booking in status "${booking.status}"` });
     }
 
+    const reason = sanitizeString(req.body?.reason, 500);
     booking.status = 'cancelled';
-    booking.cancelReason = req.body?.reason;
+    booking.cancelReason = reason || undefined;
     await booking.save();
 
     await ActivityLog.create({
@@ -177,7 +209,7 @@ router.patch('/:id/cancel', requireUser, async (req, res, next) => {
       type: 'booking_cancelled',
       booking: booking._id,
       equipment: booking.equipment,
-      message: 'Booking cancelled',
+      message: reason ? `Booking cancelled: "${reason}"` : 'Booking cancelled',
     });
 
     memoryCache.clearPrefix('equipment:');
@@ -190,21 +222,30 @@ router.patch('/:id/cancel', requireUser, async (req, res, next) => {
 // POST /api/bookings/:id/pickup-condition
 router.post('/:id/pickup-condition', requireUser, async (req, res, next) => {
   try {
-    const booking = await Booking.findById(req.params.id);
-    if (!booking) return res.status(404).json({ error: 'Not found' });
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ error: 'Invalid booking ID format' });
+    }
+
+    const booking = await Booking.findById(id);
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
 
     const isOwner = booking.user.toString() === req.dbUser._id.toString();
     if (!isOwner && req.dbUser.role !== 'admin') {
-      return res.status(403).json({ error: 'Not allowed' });
+      return res.status(403).json({ error: 'Not authorized to record pickup condition.' });
     }
     if (booking.status !== 'approved') {
-      return res.status(400).json({ error: `Booking must be "approved" to record pickup, got "${booking.status}"` });
+      return res.status(400).json({ error: `Booking must be in "approved" status to record pickup, currently "${booking.status}"` });
     }
 
-    const { photos = [], notes, condition = 'good' } = req.body;
-    if (!photos.length) return res.status(400).json({ error: 'At least one photo is required' });
+    const photos = sanitizeArray(req.body.photos, 10, (img) => sanitizeString(img, 1000));
+    const notes = sanitizeString(req.body.notes, 1000);
+    const rawCondition = sanitizeString(req.body.condition || 'good', 30).toLowerCase();
+    const conditionNormalized = ['excellent', 'good', 'fair'].includes(rawCondition) ? rawCondition : 'good';
 
-    const conditionNormalized = String(condition).toLowerCase();
+    if (!photos.length) {
+      return res.status(400).json({ error: 'At least one clear photo is required for pickup condition inspection.' });
+    }
 
     // Fetch equipment details for AI prompt context
     const equipment = await Equipment.findById(booking.equipment);
@@ -260,21 +301,30 @@ router.post('/:id/pickup-condition', requireUser, async (req, res, next) => {
 // POST /api/bookings/:id/return-condition
 router.post('/:id/return-condition', requireUser, async (req, res, next) => {
   try {
-    const booking = await Booking.findById(req.params.id);
-    if (!booking) return res.status(404).json({ error: 'Not found' });
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ error: 'Invalid booking ID format' });
+    }
+
+    const booking = await Booking.findById(id);
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
 
     const isOwner = booking.user.toString() === req.dbUser._id.toString();
     if (!isOwner && req.dbUser.role !== 'admin') {
-      return res.status(403).json({ error: 'Not allowed' });
+      return res.status(403).json({ error: 'Not authorized to record return condition.' });
     }
     if (!['active', 'overdue'].includes(booking.status)) {
-      return res.status(400).json({ error: `Booking must be "active" to record return, got "${booking.status}"` });
+      return res.status(400).json({ error: `Booking must be in "active" status to record return, currently "${booking.status}"` });
     }
 
-    const { photos = [], notes, condition = 'good' } = req.body;
-    if (!photos.length) return res.status(400).json({ error: 'At least one photo is required' });
+    const photos = sanitizeArray(req.body.photos, 10, (img) => sanitizeString(img, 1000));
+    const notes = sanitizeString(req.body.notes, 1000);
+    const rawCondition = sanitizeString(req.body.condition || 'good', 30).toLowerCase();
+    const conditionNormalized = ['excellent', 'good', 'fair', 'damaged'].includes(rawCondition) ? rawCondition : 'good';
 
-    const conditionNormalized = String(condition).toLowerCase();
+    if (!photos.length) {
+      return res.status(400).json({ error: 'At least one clear photo is required for return condition inspection.' });
+    }
 
     const equipment = await Equipment.findById(booking.equipment);
     const equipmentName = equipment?.name || 'Equipment Item';

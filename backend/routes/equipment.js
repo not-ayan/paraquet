@@ -3,6 +3,12 @@ const { Equipment, Booking, ActivityLog } = require('../models');
 const { requireUser } = require('../middleware/auth');
 const memoryCache = require('../lib/cache');
 const { isDbConnected } = require('../lib/db');
+const {
+  isValidObjectId,
+  sanitizeString,
+  sanitizeNumber,
+  sanitizeArray,
+} = require('../lib/sanitize');
 
 const router = express.Router();
 
@@ -167,7 +173,12 @@ router.get('/my', requireUser, async (req, res, next) => {
 // GET /api/equipment/:id
 router.get('/:id', async (req, res, next) => {
   try {
-    const cacheKey = `equipment:detail:${req.params.id}`;
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ error: 'Invalid equipment ID format' });
+    }
+
+    const cacheKey = `equipment:${id}`;
     const cached = memoryCache.get(cacheKey);
     if (cached) {
       res.setHeader('X-Cache', 'HIT');
@@ -178,10 +189,10 @@ router.get('/:id', async (req, res, next) => {
       return res.status(503).json({ error: 'Database is reconnecting. Please retry.' });
     }
 
-    const item = await Equipment.findById(req.params.id)
+    const item = await Equipment.findById(id)
       .populate('addedBy', 'name email clerkId avatarUrl')
       .lean();
-    if (!item) return res.status(404).json({ error: 'Not found' });
+    if (!item) return res.status(404).json({ error: 'Equipment not found' });
 
     const now = new Date();
     const itemBookings = await Booking.find({
@@ -234,8 +245,22 @@ router.get('/:id', async (req, res, next) => {
 // POST /api/equipment — any signed-in user can propose an item; starts pending
 router.post('/', requireUser, async (req, res, next) => {
   try {
-    const { name, description, category, tags, images, quantity, location, maxBorrowDays, condition } = req.body;
-    if (!name) return res.status(400).json({ error: 'name is required' });
+    const name = sanitizeString(req.body.name, 150);
+    const description = sanitizeString(req.body.description, 2000);
+    const category = sanitizeString(req.body.category, 60) || 'General';
+    const location = sanitizeString(req.body.location, 200) || 'Tezpur University, Assam';
+    const tags = sanitizeArray(req.body.tags, 10, (t) => sanitizeString(t, 40));
+    const images = sanitizeArray(req.body.images, 10, (img) => sanitizeString(img, 1000));
+    const quantity = sanitizeNumber(req.body.quantity, 1, 100, 1);
+    const maxBorrowDays = sanitizeNumber(req.body.maxBorrowDays, 1, 30, 3);
+    const rawCondition = req.body.condition?.status || req.body.condition || 'good';
+    const conditionStatus = ['excellent', 'good', 'fair'].includes(String(rawCondition).toLowerCase())
+      ? String(rawCondition).toLowerCase()
+      : 'good';
+
+    if (!name || name.length < 2) {
+      return res.status(400).json({ error: 'Equipment name is required and must be at least 2 characters.' });
+    }
 
     const item = await Equipment.create({
       name,
@@ -245,8 +270,8 @@ router.post('/', requireUser, async (req, res, next) => {
       images,
       quantity,
       location,
-      condition: condition || { status: 'good' },
-      maxBorrowDays: maxBorrowDays ? Math.max(1, Math.min(30, Number(maxBorrowDays))) : 3,
+      condition: { status: conditionStatus },
+      maxBorrowDays,
       addedBy: req.dbUser._id,
     });
 
@@ -267,24 +292,33 @@ router.post('/', requireUser, async (req, res, next) => {
 // PATCH /api/equipment/:id — owner or admin only
 router.patch('/:id', requireUser, async (req, res, next) => {
   try {
-    const item = await Equipment.findById(req.params.id);
-    if (!item) return res.status(404).json({ error: 'Not found' });
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ error: 'Invalid equipment ID format' });
+    }
+
+    const item = await Equipment.findById(id);
+    if (!item) return res.status(404).json({ error: 'Equipment not found' });
 
     const isOwner = item.addedBy?.toString() === req.dbUser._id.toString();
     if (!isOwner && req.dbUser.role !== 'admin') {
-      return res.status(403).json({ error: 'Not allowed' });
+      return res.status(403).json({ error: 'Not authorized to modify this equipment.' });
     }
 
-    const editable = ['name', 'description', 'category', 'tags', 'images', 'quantity', 'location', 'condition', 'availability', 'maxBorrowDays'];
-    editable.forEach((field) => {
-      if (req.body[field] !== undefined) {
-        if (field === 'maxBorrowDays') {
-          item.maxBorrowDays = Math.max(1, Math.min(30, Number(req.body[field]) || 3));
-        } else {
-          item[field] = req.body[field];
-        }
+    if (req.body.name !== undefined) item.name = sanitizeString(req.body.name, 150);
+    if (req.body.description !== undefined) item.description = sanitizeString(req.body.description, 2000);
+    if (req.body.category !== undefined) item.category = sanitizeString(req.body.category, 60);
+    if (req.body.location !== undefined) item.location = sanitizeString(req.body.location, 200);
+    if (req.body.tags !== undefined) item.tags = sanitizeArray(req.body.tags, 10, (t) => sanitizeString(t, 40));
+    if (req.body.images !== undefined) item.images = sanitizeArray(req.body.images, 10, (img) => sanitizeString(img, 1000));
+    if (req.body.quantity !== undefined) item.quantity = sanitizeNumber(req.body.quantity, 1, 100, item.quantity);
+    if (req.body.maxBorrowDays !== undefined) item.maxBorrowDays = sanitizeNumber(req.body.maxBorrowDays, 1, 30, item.maxBorrowDays || 3);
+    if (req.body.condition !== undefined) {
+      const rawCondition = req.body.condition?.status || req.body.condition;
+      if (['excellent', 'good', 'fair'].includes(String(rawCondition).toLowerCase())) {
+        item.condition = { status: String(rawCondition).toLowerCase() };
       }
-    });
+    }
 
     await item.save();
     memoryCache.clearPrefix('equipment:');
@@ -297,21 +331,28 @@ router.patch('/:id', requireUser, async (req, res, next) => {
 // PATCH /api/equipment/:id/status — WEB-C08: Record status change with previousValue, newValue, time, and reason
 router.patch('/:id/status', requireUser, async (req, res, next) => {
   try {
-    const { status, reason } = req.body;
-    if (!status) return res.status(400).json({ error: 'New status is required' });
-    if (!reason || !reason.trim()) {
-      return res.status(400).json({ error: 'A justification reason is required for status changes (WEB-C08)' });
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ error: 'Invalid equipment ID format' });
+    }
+
+    const rawStatus = sanitizeString(req.body.status, 30);
+    const reason = sanitizeString(req.body.reason, 500);
+
+    if (!rawStatus) return res.status(400).json({ error: 'New status is required' });
+    if (!reason || reason.length < 3) {
+      return res.status(400).json({ error: 'A justification reason of at least 3 characters is required for status changes (WEB-C08)' });
     }
 
     const validStatuses = ['available', 'booked', 'maintenance', 'retired'];
-    const normalizedStatus = status.toLowerCase();
+    const normalizedStatus = rawStatus.toLowerCase();
     if (!validStatuses.includes(normalizedStatus)) {
       return res.status(400).json({ 
-        error: `Invalid status: ${status}. Must be one of: ${validStatuses.join(', ')}` 
+        error: `Invalid status: ${rawStatus}. Must be one of: ${validStatuses.join(', ')}` 
       });
     }
 
-    const item = await Equipment.findById(req.params.id);
+    const item = await Equipment.findById(id);
     if (!item) return res.status(404).json({ error: 'Equipment not found' });
 
     const previousValue = item.availability || 'available';
@@ -321,13 +362,13 @@ router.patch('/:id/status', requireUser, async (req, res, next) => {
 
     const rawUserName = req.headers['x-user-name'];
     const authorName = rawUserName 
-      ? decodeURIComponent(rawUserName) 
+      ? sanitizeString(decodeURIComponent(rawUserName), 100) 
       : (req.dbUser?.name || 'Community Steward');
 
     const historyRecord = {
       previousValue,
       newValue,
-      reason: reason.trim(),
+      reason,
       changedAt: new Date(),
       changedBy: req.dbUser?._id,
       changedByName: authorName,
@@ -345,7 +386,7 @@ router.patch('/:id/status', requireUser, async (req, res, next) => {
       user: req.dbUser._id,
       type: 'equipment_status_changed',
       equipment: item._id,
-      message: `Equipment status changed from ${previousValue.toUpperCase()} to ${newValue.toUpperCase()}: "${reason.trim()}"`,
+      message: `Equipment status changed from ${previousValue.toUpperCase()} to ${newValue.toUpperCase()}: "${reason}"`,
     });
 
     memoryCache.clearPrefix('equipment:');
@@ -358,13 +399,24 @@ router.patch('/:id/status', requireUser, async (req, res, next) => {
 // DELETE /api/equipment/:id — owner or admin only
 router.delete('/:id', requireUser, async (req, res, next) => {
   try {
-    const item = await Equipment.findById(req.params.id);
-    if (!item) return res.status(404).json({ error: 'Not found' });
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ error: 'Invalid equipment ID format' });
+    }
+
+    const item = await Equipment.findById(id);
+    if (!item) return res.status(404).json({ error: 'Equipment not found' });
 
     const isOwner = item.addedBy?.toString() === req.dbUser._id.toString();
     if (!isOwner && req.dbUser.role !== 'admin') {
-      return res.status(403).json({ error: 'Not allowed' });
+      return res.status(403).json({ error: 'Not authorized to delete this equipment.' });
     }
+
+    // Cancel any pending or approved bookings for this item to prevent orphans
+    await Booking.updateMany(
+      { equipment: item._id, status: { $in: ['pending', 'approved'] } },
+      { status: 'cancelled', cancelReason: 'Equipment deleted by owner/administrator' }
+    );
 
     await item.deleteOne();
     memoryCache.clearPrefix('equipment:');

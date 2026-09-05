@@ -42,6 +42,7 @@ export default function NewEquipmentPage() {
   const [createdSuccess, setCreatedSuccess] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const categories: EquipmentCategory[] = [
     'Cameras & Video',
@@ -56,6 +57,17 @@ export default function NewEquipmentPage() {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setUploadError('Please select a valid image file (PNG, JPG, WebP).');
+      return;
+    }
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError('Image size must be less than 10MB.');
+      return;
+    }
 
     setIsUploadingImage(true);
     setUploadError(null);
@@ -74,9 +86,15 @@ export default function NewEquipmentPage() {
   };
 
   const handleAddImage = () => {
-    if (newImageUrl.trim()) {
-      setImages([...images, newImageUrl.trim()]);
+    const trimmed = newImageUrl.trim();
+    if (trimmed) {
+      if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+        setUploadError('Please enter a valid HTTP/HTTPS image URL.');
+        return;
+      }
+      setImages([...images, trimmed]);
       setNewImageUrl('');
+      setUploadError(null);
     }
   };
 
@@ -94,37 +112,56 @@ export default function NewEquipmentPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    setFormError(null);
+
+    const trimmedName = name.trim();
+    const trimmedLocation = location.trim();
+    const trimmedDesc = description.trim();
+
+    if (!trimmedName || trimmedName.length < 2) {
+      setFormError('Equipment title must be at least 2 characters long.');
+      return;
+    }
+
+    if (!trimmedLocation) {
+      setFormError('Please specify a campus pickup/handover location.');
+      return;
+    }
 
     setIsSubmitting(true);
 
-    const specObj: Record<string, string> = {};
-    specs.forEach((s) => {
-      if (s.key.trim() && s.value.trim()) {
-        specObj[s.key.trim()] = s.value.trim();
-      }
-    });
+    try {
+      const specObj: Record<string, string> = {};
+      specs.forEach((s) => {
+        if (s.key.trim() && s.value.trim()) {
+          specObj[s.key.trim()] = s.value.trim();
+        }
+      });
 
-    const fallbackImg = getFallbackImage(name, category);
-    const finalImages = images.length > 0 ? images : [fallbackImg];
+      const fallbackImg = getFallbackImage(trimmedName, category);
+      const finalImages = images.length > 0 ? images : [fallbackImg];
 
-    await apiClient.createEquipment({
-      name: name.trim(),
-      description: description.trim(),
-      category,
-      location: location.trim(),
-      images: finalImages,
-      currentCondition,
-      specs: specObj,
-      maxBorrowDays,
-    });
+      await apiClient.createEquipment({
+        name: trimmedName,
+        description: trimmedDesc,
+        category,
+        location: trimmedLocation,
+        images: finalImages,
+        currentCondition,
+        specs: specObj,
+        maxBorrowDays: Math.max(1, Math.min(30, maxBorrowDays)),
+      });
 
-    setIsSubmitting(false);
-    setCreatedSuccess(true);
+      setIsSubmitting(false);
+      setCreatedSuccess(true);
 
-    setTimeout(() => {
-      router.push('/dashboard');
-    }, 1800);
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 1800);
+    } catch (err: any) {
+      setIsSubmitting(false);
+      setFormError(err.message || 'Failed to submit equipment listing. Please verify your inputs.');
+    }
   };
 
   const previewImage = images[0] || null;
@@ -170,7 +207,14 @@ export default function NewEquipmentPage() {
           </p>
         </div>
       ) : (
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {formError && (
+            <div className="p-4 bg-[#FEE2E2] border border-[#FCA5A5] rounded-2xl text-xs text-[#991B1B] flex items-center gap-2.5 font-semibold">
+              <Info className="w-4 h-4 flex-shrink-0" />
+              <span>{formError}</span>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
             {/* Left Column: Form Details & Specifications (7 cols) */}

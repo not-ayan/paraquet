@@ -10,6 +10,11 @@ const {
   sendConditionResolvedEmail,
 } = require('../services/email');
 const { checkAndNotifyOverdueBookings } = require('../services/overdue');
+const {
+  isValidObjectId,
+  sanitizeString,
+  sanitizeNumber,
+} = require('../lib/sanitize');
 
 const router = express.Router();
  
@@ -74,8 +79,13 @@ router.get('/equipment/pending', async (req, res, next) => {
 // PATCH /api/admin/equipment/:id/approve
 router.patch('/equipment/:id/approve', async (req, res, next) => {
   try {
-    const item = await Equipment.findById(req.params.id);
-    if (!item) return res.status(404).json({ error: 'Not found' });
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ error: 'Invalid equipment ID format' });
+    }
+
+    const item = await Equipment.findById(id);
+    if (!item) return res.status(404).json({ error: 'Equipment not found' });
  
     // Promote images in Cloudinary from 'submitted' to 'approved' folder
     if (item.images && item.images.length > 0) {
@@ -106,11 +116,17 @@ router.patch('/equipment/:id/approve', async (req, res, next) => {
 // PATCH /api/admin/equipment/:id/reject
 router.patch('/equipment/:id/reject', async (req, res, next) => {
   try {
-    const item = await Equipment.findById(req.params.id);
-    if (!item) return res.status(404).json({ error: 'Not found' });
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ error: 'Invalid equipment ID format' });
+    }
+
+    const item = await Equipment.findById(id);
+    if (!item) return res.status(404).json({ error: 'Equipment not found' });
  
+    const reason = sanitizeString(req.body?.reason, 500);
     item.approvalStatus = 'rejected';
-    item.rejectionReason = req.body?.reason;
+    item.rejectionReason = reason || undefined;
     await item.save();
  
     if (item.addedBy) {
@@ -118,7 +134,7 @@ router.patch('/equipment/:id/reject', async (req, res, next) => {
         user: item.addedBy,
         type: 'equipment_rejected',
         equipment: item._id,
-        message: `${item.name} was rejected${req.body?.reason ? `: ${req.body.reason}` : ''}`,
+        message: `${item.name} was rejected${reason ? `: ${reason}` : ''}`,
       });
     }
     memoryCache.clearPrefix('equipment:');
@@ -131,8 +147,13 @@ router.patch('/equipment/:id/reject', async (req, res, next) => {
 // DELETE /api/admin/equipment/:id — permanently delete equipment
 router.delete('/equipment/:id', async (req, res, next) => {
   try {
-    const item = await Equipment.findById(req.params.id);
-    if (!item) return res.status(404).json({ error: 'Not found' });
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ error: 'Invalid equipment ID format' });
+    }
+
+    const item = await Equipment.findById(id);
+    if (!item) return res.status(404).json({ error: 'Equipment not found' });
 
     // Cancel any pending or approved bookings for this item to prevent orphans
     await Booking.updateMany(
@@ -174,8 +195,13 @@ router.get('/bookings/pending', async (req, res, next) => {
 // PATCH /api/admin/bookings/:id/approve
 router.patch('/bookings/:id/approve', async (req, res, next) => {
   try {
-    const booking = await Booking.findById(req.params.id);
-    if (!booking) return res.status(404).json({ error: 'Not found' });
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ error: 'Invalid booking ID format' });
+    }
+
+    const booking = await Booking.findById(id);
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
     if (booking.status !== 'pending') {
       return res.status(400).json({ error: `Booking is "${booking.status}", not pending` });
     }
@@ -217,14 +243,20 @@ router.patch('/bookings/:id/approve', async (req, res, next) => {
 // PATCH /api/admin/bookings/:id/reject
 router.patch('/bookings/:id/reject', async (req, res, next) => {
   try {
-    const booking = await Booking.findById(req.params.id);
-    if (!booking) return res.status(404).json({ error: 'Not found' });
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ error: 'Invalid booking ID format' });
+    }
+
+    const booking = await Booking.findById(id);
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
     if (booking.status !== 'pending') {
       return res.status(400).json({ error: `Booking is "${booking.status}", not pending` });
     }
  
+    const reason = sanitizeString(req.body?.reason, 500);
     booking.status = 'rejected';
-    booking.cancelReason = req.body?.reason;
+    booking.cancelReason = reason || undefined;
     await booking.save();
     await booking.populate('equipment user');
 
@@ -234,7 +266,7 @@ router.patch('/bookings/:id/reject', async (req, res, next) => {
       type: 'booking_rejected',
       booking: booking._id,
       equipment: equipId,
-      message: req.body?.reason ? `Booking rejected: ${req.body.reason}` : 'Booking rejected',
+      message: reason ? `Booking rejected: ${reason}` : 'Booking rejected',
     });
 
     // Fire-and-forget rejection notice email to borrower
@@ -242,7 +274,7 @@ router.patch('/bookings/:id/reject', async (req, res, next) => {
       user: booking.user,
       equipment: booking.equipment,
       booking,
-      reason: req.body?.reason,
+      reason,
     }).catch((err) => console.warn('[Email] Error sending rejection email:', err.message));
 
     memoryCache.clearPrefix('equipment:');
@@ -274,24 +306,31 @@ router.get('/bookings/flagged', async (req, res, next) => {
 // flagged pickup/return pair: clear it, and optionally attach a damage fee.
 router.patch('/bookings/:id/resolve-condition', async (req, res, next) => {
   try {
-    const booking = await Booking.findById(req.params.id);
-    if (!booking) return res.status(404).json({ error: 'Not found' });
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ error: 'Invalid booking ID format' });
+    }
+
+    const booking = await Booking.findById(id);
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
     if (!booking.returnCondition) {
       return res.status(400).json({ error: 'No return condition recorded on this booking' });
     }
  
-    const { damageFee, note } = req.body;
+    const damageFee = sanitizeNumber(req.body.damageFee, 0, 1000000, 0);
+    const note = sanitizeString(req.body.note, 1000);
+
     booking.returnCondition.adminReviewed = true;
     if (note) {
       booking.returnCondition.notes = [booking.returnCondition.notes, `[admin] ${note}`]
         .filter(Boolean)
         .join('\n');
     }
-    if (damageFee) {
+    if (damageFee > 0) {
       if (!booking.charges) {
         booking.charges = { overdueFee: 0, damageFee: 0, status: 'none' };
       }
-      booking.charges.damageFee = Number(damageFee);
+      booking.charges.damageFee = damageFee;
       booking.charges.status = 'pending';
     }
     await booking.save();
@@ -303,7 +342,7 @@ router.patch('/bookings/:id/resolve-condition', async (req, res, next) => {
       type: 'condition_flagged',
       booking: booking._id,
       equipment: equipId,
-      message: damageFee ? `Admin applied a damage fee of ₹${damageFee}` : 'Admin cleared flagged condition',
+      message: damageFee > 0 ? `Admin applied a damage fee of ₹${damageFee}` : 'Admin cleared flagged condition with zero damage fee',
     });
 
     // Fire-and-forget condition resolution email to borrower
@@ -311,7 +350,7 @@ router.patch('/bookings/:id/resolve-condition', async (req, res, next) => {
       user: booking.user,
       equipment: booking.equipment,
       booking,
-      damageFee: Number(damageFee || 0),
+      damageFee,
       note,
     }).catch((err) => console.warn('[Email] Error sending condition resolved email:', err.message));
 
