@@ -32,7 +32,7 @@ The platform is designed as a decoupled, micro-service architecture consisting o
 ```
 
 - **Student / Borrower Frontend (`frontend/` on `http://localhost:3000`)**: Next.js 14 client application with rich tactile styling, real-time availability calendar, date-range reservation builder, handover condition checklists, and user profile dashboard.
-- **Admin Command Center (`admin/` on `http://localhost:3001`)**: Dedicated administrative operations dashboard with dark frosted-glass aesthetics, Bento metrics, pending reservation moderation, equipment lifecycle control, Gemini AI visual damage arbitration, student accounts directory, and live visual audit trail.
+- **Admin Command Center (`admin/` on `http://localhost:3001`)**: Dedicated administrative operations dashboard pending reservation moderation, equipment lifecycle control, Gemini AI visual damage arbitration, student accounts directory, and live visual audit trail.
 - **Backend REST API (`backend/` on `http://localhost:4000/api`)**: Node.js & Express REST API with MongoDB Atlas persistence, Clerk authentication sync, in-memory query caching, background overdue loan daemon, and automated Resend transactional email dispatcher.
 - **Cloud Infrastructure**: MongoDB Atlas for persistent storage, Cloudinary for high-res equipment and condition photos, Google Gemini 3.5 Flash for multimodal visual inspection, and Resend for transactional email delivery.
 
