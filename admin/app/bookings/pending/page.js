@@ -102,6 +102,11 @@ export default function PendingBookingsPage() {
                     <div>
                       <div style={{ fontWeight: 600 }}>{b.user?.name || 'Borrower'}</div>
                       <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{b.user?.email}</div>
+                      {b.purpose && (
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontStyle: 'italic', marginTop: 2 }}>
+                          &ldquo;{b.purpose}&rdquo;
+                        </div>
+                      )}
                     </div>
                   </td>
                   <td>
@@ -116,7 +121,7 @@ export default function PendingBookingsPage() {
                   </td>
                   <td>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--text-secondary)' }}>
-                      📍 {b.location || 'Tezpur University, Assam'}
+                      📍 {b.location || b.equipment?.location || 'Tezpur University, Assam'}
                     </span>
                   </td>
                   <td style={{ textAlign: 'right' }}>

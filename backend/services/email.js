@@ -127,6 +127,19 @@ async function sendBookingRequestedEmail({ user, equipment, booking }) {
   const equipmentName = equipment?.name || 'Equipment';
   const startStr = new Date(booking.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const endStr = new Date(booking.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const pickupLocation = booking.location || equipment?.location || 'Tezpur University, Assam (Central Lab)';
+
+  const details = [
+    ['Equipment', equipmentName],
+    ['Category', equipment?.category || 'General'],
+    ['Loan Period', `${startStr} – ${endStr}`],
+    ['Pickup Location', pickupLocation],
+  ];
+
+  if (booking.purpose) {
+    details.push(['Project Purpose', booking.purpose]);
+  }
+  details.push(['Status', 'Pending Admin Approval']);
 
   const html = renderEmailLayout({
     title: `Reservation Request: ${equipmentName}`,
@@ -135,13 +148,7 @@ async function sendBookingRequestedEmail({ user, equipment, booking }) {
     badgeColor: '#b45309',
     greeting: userName,
     message: `Your loan reservation request for <strong>${equipmentName}</strong> has been received and is currently under review by our campus equipment administrators.`,
-    details: [
-      ['Equipment', equipmentName],
-      ['Category', equipment?.category || 'General'],
-      ['Loan Period', `${startStr} – ${endStr}`],
-      ['Pickup Location', booking.location || 'Tezpur University, Assam (Central Hub)'],
-      ['Status', 'Pending Admin Approval'],
-    ],
+    details,
     ctaText: 'View Booking Status',
     ctaUrl: `${portalUrl}/dashboard`,
   });
@@ -161,6 +168,7 @@ async function sendBookingApprovedEmail({ user, equipment, booking }) {
   const equipmentName = equipment?.name || 'Equipment';
   const startStr = new Date(booking.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const endStr = new Date(booking.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const pickupLocation = booking.location || equipment?.location || 'Tezpur University, Assam (Central Lab)';
 
   const html = renderEmailLayout({
     title: `Booking Approved: ${equipmentName}`,
@@ -179,7 +187,7 @@ async function sendBookingApprovedEmail({ user, equipment, booking }) {
     details: [
       ['Equipment', equipmentName],
       ['Pickup Window', `${startStr} – ${endStr}`],
-      ['Pickup Location', booking.location || 'Tezpur University, Assam (Central Hub)'],
+      ['Pickup Location', pickupLocation],
       ['Max Duration', `${equipment?.maxBorrowDays || 3} Days`],
       ['Status', 'Approved (Awaiting Pickup)'],
     ],
@@ -256,7 +264,7 @@ async function sendPickupConfirmedEmail({ user, equipment, booking }) {
     details: [
       ['Equipment', equipmentName],
       ['Return Due Date', dueStr],
-      ['Drop-off Location', booking.location || 'Tezpur University, Assam (Central Hub)'],
+      ['Drop-off Location', booking.location || equipment?.location || 'Tezpur University, Assam (Central Lab)'],
       ['Condition Logged', (booking.pickupCondition?.condition || 'Good').toUpperCase()],
     ],
     ctaText: 'View Active Loan',
@@ -356,7 +364,7 @@ async function sendOverdueWarningEmail({ user, equipment, booking, daysLate = 1,
       ['Original Due Date', dueStr],
       ['Days Past Due', `${daysLate} Days`],
       ['Accrued Penalty', `₹${overdueFee}`],
-      ['Return Location', booking.location || 'Tezpur University, Assam (Central Hub)'],
+      ['Return Location', booking.location || equipment?.location || 'Tezpur University, Assam (Central Lab)'],
     ],
     ctaText: 'Start Return Process',
     ctaUrl: `${portalUrl}/dashboard`,

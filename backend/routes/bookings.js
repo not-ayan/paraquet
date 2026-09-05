@@ -81,7 +81,7 @@ router.get('/:id', requireUser, async (req, res, next) => {
 // POST /api/bookings
 router.post('/', requireUser, async (req, res, next) => {
   try {
-    const { equipmentId, startDate, endDate, location, borrowerName, borrowerEmail } = req.body;
+    const { equipmentId, startDate, endDate, location, purpose, borrowerName, borrowerEmail } = req.body;
     if (!equipmentId || !startDate || !endDate) {
       return res.status(400).json({ error: 'equipmentId, startDate, endDate are required' });
     }
@@ -121,7 +121,8 @@ router.post('/', requireUser, async (req, res, next) => {
       equipment: equipmentId,
       startDate: start,
       endDate: end,
-      location: location || equipment.location || 'Tezpur University, Assam',
+      location: location || equipment.location || 'Tezpur University, Assam (Central Lab)',
+      purpose: purpose || 'Academic / Project Work',
     });
 
     await ActivityLog.create({

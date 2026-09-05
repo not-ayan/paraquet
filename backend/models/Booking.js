@@ -47,6 +47,7 @@ const bookingSchema = new Schema(
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
     location: { type: String },
+    purpose: { type: String },
 
     // pending: awaiting admin approval
     // approved: accepted, not yet picked up

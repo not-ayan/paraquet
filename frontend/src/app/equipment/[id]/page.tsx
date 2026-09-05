@@ -32,6 +32,7 @@ export default function EquipmentDetailPage() {
 
   const [equipment, setEquipment] = useState<Equipment | null>(null);
   const [equipmentBookings, setEquipmentBookings] = useState<Booking[]>([]);
+  const [myBookings, setMyBookings] = useState<Booking[]>([]);
   const [equipmentActivity, setEquipmentActivity] = useState<ActivityLog[]>([]);
   const [selectedPhotoPreview, setSelectedPhotoPreview] = useState<{ url: string; title: string } | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -172,6 +173,13 @@ export default function EquipmentDetailPage() {
           console.warn('Error loading equipment activity:', err);
         });
 
+      // Fetch user's own bookings to check if they already borrowed this item
+      apiClient.getMyBookings()
+        .then((bks) => {
+          if (isMounted) setMyBookings(bks);
+        })
+        .catch(() => {});
+
       // Pre-fill booking dates if passed from catalogue search (?startDate=...&endDate=...)
       if (typeof window !== 'undefined') {
         const sp = new URLSearchParams(window.location.search);
@@ -239,6 +247,32 @@ export default function EquipmentDetailPage() {
   const selectedEnd = new Date(`${endDate}T${endTime}:00Z`);
   const hasValidDateRange = !isNaN(selectedStart.getTime()) && !isNaN(selectedEnd.getTime()) && selectedStart < selectedEnd;
 
+  // Check if current user already has an unreturned booking (pending, approved, active, or overdue) for this equipment
+  const currentEmail = (clerkUser?.primaryEmailAddress?.emailAddress || guestEmail || '').toLowerCase().trim();
+  const currentClerkId = clerkUser?.id || '';
+  const isUnreturned = (status: string) => ['PENDING', 'APPROVED', 'ACTIVE', 'OVERDUE'].includes(status);
+
+  // 1. Check equipmentBookings
+  const existingUserBookingFromEq = equipmentBookings.find(b => {
+    if (!isUnreturned(b.status)) return false;
+    const bEmail = (b.borrowerEmail || (b as any).user?.email || '').toLowerCase().trim();
+    const bId = b.borrowerId || (b as any).user?.clerkId || (b as any).user?._id || '';
+
+    const emailMatch = Boolean(currentEmail && bEmail && currentEmail === bEmail);
+    const idMatch = Boolean(currentClerkId && bId && (currentClerkId === bId || (b as any).user?.clerkId === currentClerkId));
+
+    return emailMatch || idMatch;
+  });
+
+  // 2. Check myBookings (user's personal booking list)
+  const existingUserBookingFromMy = myBookings.find(b => {
+    if (!isUnreturned(b.status)) return false;
+    const eqId = b.equipmentId || (b as any).equipment?._id || (b as any).equipment;
+    return eqId === id || (equipment?.name && b.equipmentName === equipment.name);
+  });
+
+  const existingUserBooking = existingUserBookingFromEq || existingUserBookingFromMy || null;
+
   // Pending request collision (write nothing on main card, but show warning when picking same dates)
   const pendingCollision = hasValidDateRange ? equipmentBookings.find(b => 
     b.status === 'PENDING' &&
@@ -257,12 +291,18 @@ export default function EquipmentDetailPage() {
                       equipment.availabilityStatus !== 'MAINTENANCE' && 
                       equipment.availabilityStatus !== 'RETIRED' && 
                       !isOverdue && 
-                      !approvedCollision;
+                      !approvedCollision &&
+                      !existingUserBooking;
 
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!purpose.trim()) {
       setBookingError('Please provide a brief statement of purpose.');
+      return;
+    }
+
+    if (existingUserBooking) {
+      setBookingError(`You already have an active or pending reservation for this equipment (${existingUserBooking.status}). Please return your existing loan before booking again.`);
       return;
     }
 
@@ -289,6 +329,7 @@ export default function EquipmentDetailPage() {
       equipmentId: equipment.id,
       startDateTime,
       endDateTime,
+      location: equipment.location,
       purpose,
       equipmentName: equipment.name,
       equipmentImage: equipment.images?.[0],
@@ -636,7 +677,11 @@ export default function EquipmentDetailPage() {
                 <span className="text-[11px] uppercase font-bold tracking-wider text-[#70706B]">
                   Tezpur University Loan Request
                 </span>
-                {isOverdue ? (
+                {existingUserBooking ? (
+                  <span className="badge-pill bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA] font-bold">
+                    ● {existingUserBooking.status === 'PENDING' ? 'Your Request Pending' : 'Your Active Loan'}
+                  </span>
+                ) : isOverdue ? (
                   <span className="badge-pill badge-rejected font-bold">● Overdue Loan</span>
                 ) : isCurrentlyWithUser ? (
                   <span className="badge-pill badge-booked font-semibold">● In Use (with {currentlyInCustodyBooking?.borrowerName})</span>
@@ -667,7 +712,7 @@ export default function EquipmentDetailPage() {
             </div>
 
             {/* Active / Approved / Overdue Custody Details */}
-            {isOverdue && currentlyInCustodyBooking ? (
+            {!existingUserBooking && isOverdue && currentlyInCustodyBooking ? (
               <div className="p-3.5 bg-[#FEE2E2] border border-[#FCA5A5] rounded-xl text-fluid-micro text-[#991B1B] space-y-1">
                 <div className="flex items-center gap-1.5 font-bold text-sm text-[#DC2626]">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -677,7 +722,7 @@ export default function EquipmentDetailPage() {
                   Currently in possession of <strong>{currentlyInCustodyBooking.borrowerName}</strong>. This equipment was scheduled for return on {new Date(currentlyInCustodyBooking.endDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at {new Date(currentlyInCustodyBooking.endDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.
                 </p>
               </div>
-            ) : isCurrentlyWithUser && currentlyInCustodyBooking ? (
+            ) : !existingUserBooking && isCurrentlyWithUser && currentlyInCustodyBooking ? (
               <div className="p-3.5 bg-[#EBF5FF] border border-[#BFDBFE] rounded-xl text-fluid-micro text-[#1E40AF] space-y-1">
                 <div className="flex items-center gap-1.5 font-bold text-sm text-[#2563EB]">
                   <UserCheck className="w-4 h-4 flex-shrink-0" />
@@ -687,7 +732,7 @@ export default function EquipmentDetailPage() {
                   Currently with <strong>{currentlyInCustodyBooking.borrowerName}</strong> until {new Date(currentlyInCustodyBooking.endDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ({new Date(currentlyInCustodyBooking.endDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}).
                 </p>
               </div>
-            ) : nextUpcomingBooking ? (
+            ) : !existingUserBooking && nextUpcomingBooking ? (
               <div className="p-3.5 bg-[#EFF6FF] border border-[#BFDBFE] rounded-2xl text-fluid-micro text-[#1E40AF] space-y-1">
                 <div className="flex items-center gap-1.5 font-bold text-xs text-[#2563EB]">
                   <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
@@ -714,6 +759,31 @@ export default function EquipmentDetailPage() {
             ) : (
               <form onSubmit={handleBookingSubmit} className="space-y-4 pt-1">
                 
+                {/* Active Loan Warning for Current User */}
+                {existingUserBooking && (
+                  <div className="p-4 bg-[#FEF2F2] border border-[#FECACA] rounded-2xl text-xs text-[#991B1B] space-y-2 animate-in fade-in shadow-2xs">
+                    <div className="flex items-center gap-2 font-bold text-xs sm:text-sm text-[#DC2626]">
+                      <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                      <span>Active Loan in Progress</span>
+                    </div>
+                    <p className="leading-relaxed text-[11px] sm:text-xs text-[#991B1B]">
+                      You already have a <strong>{existingUserBooking.status}</strong> booking for <strong>{equipment.name}</strong> scheduled until{' '}
+                      <strong>{new Date(existingUserBooking.endDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong>.
+                    </p>
+                    <p className="text-[11px] text-[#B91C1C]">
+                      University policy requires you to return your ongoing loan before reserving this equipment again.
+                    </p>
+                    <div className="pt-1 flex items-center gap-3">
+                      <Link
+                        href="/dashboard"
+                        className="inline-flex items-center gap-1.5 font-bold text-xs text-[#DC2626] hover:underline"
+                      >
+                        View in My Dashboard & Returns →
+                      </Link>
+                    </div>
+                  </div>
+                )}
+
                 {/* Number of Days Picker */}
                 <div className="space-y-2 p-3.5 bg-[#F8F8F6] border border-[#E5E5E0] rounded-2xl shadow-2xs">
                   <div className="flex items-center justify-between">
@@ -802,7 +872,7 @@ export default function EquipmentDetailPage() {
                 </div>
 
                 {/* Pending Request Date Collision Warning */}
-                {pendingCollision && !approvedCollision && (
+                {!existingUserBooking && pendingCollision && !approvedCollision && (
                   <div className="p-3.5 bg-[#FEF9C3] border border-[#FDE047] rounded-2xl text-xs text-[#854D0E] flex items-start gap-2.5">
                     <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5 text-[#CA8A04]" />
                     <div className="space-y-0.5">
@@ -815,7 +885,7 @@ export default function EquipmentDetailPage() {
                 )}
 
                 {/* Approved / Active Booking Collision Alert */}
-                {approvedCollision && (
+                {!existingUserBooking && approvedCollision && (
                   <div className="p-3.5 bg-[#FEE2E2] border border-[#FCA5A5] rounded-2xl text-xs text-[#991B1B] flex items-start gap-2.5">
                     <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-[#DC2626]" />
                     <div className="space-y-0.5">
@@ -897,24 +967,28 @@ export default function EquipmentDetailPage() {
 
                 <button
                   type="submit"
-                  disabled={isSubmitting || !isAvailable || isDurationExceeded}
+                  disabled={isSubmitting || !isAvailable || isDurationExceeded || Boolean(existingUserBooking)}
                   className={`w-full py-3.5 rounded-full text-xs sm:text-sm font-bold transition-all shadow-xs active:scale-98 ${
-                    isAvailable && !isDurationExceeded
+                    isAvailable && !isDurationExceeded && !existingUserBooking
                       ? 'btn-primary'
                       : 'inline-flex items-center justify-center bg-[#EDEDEA] text-[#9C9C96] border border-[#E5E5E0] cursor-not-allowed'
                   }`}
                 >
                   {isSubmitting 
                     ? 'Submitting Request...' 
-                    : isDurationExceeded
-                      ? `Exceeds Max ${maxBorrowDays} Days`
-                      : isOverdue 
-                        ? 'Currently Overdue' 
-                        : approvedCollision 
-                          ? 'Selected Dates Unavailable' 
-                          : isAvailable 
-                            ? 'Submit Reservation Request ↗' 
-                            : 'Unavailable for Booking'}
+                    : existingUserBooking
+                      ? existingUserBooking.status === 'PENDING'
+                        ? 'Pending Request Already Submitted'
+                        : 'Return Item Before Re-booking'
+                      : isDurationExceeded
+                        ? `Exceeds Max ${maxBorrowDays} Days`
+                        : isOverdue 
+                          ? 'Currently Overdue' 
+                          : approvedCollision 
+                            ? 'Selected Dates Unavailable' 
+                            : isAvailable 
+                              ? 'Submit Reservation Request ↗' 
+                              : 'Unavailable for Booking'}
                 </button>
 
                 <p className="text-center text-[11px] text-[#70706B] pt-1">

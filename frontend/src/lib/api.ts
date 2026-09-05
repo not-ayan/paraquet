@@ -182,7 +182,8 @@ function adaptBooking(raw: any): Booking {
     borrowerEmail,
     startDateTime: raw.startDate || raw.startDateTime || new Date().toISOString(),
     endDateTime: raw.endDate || raw.endDateTime || new Date().toISOString(),
-    purpose: raw.location || raw.purpose || 'Tezpur University, Assam',
+    location: raw.location || (typeof eq === 'object' ? eq?.location : undefined) || 'Tezpur University, Assam',
+    purpose: raw.purpose || (raw.location && raw.location !== 'Tezpur University, Assam' ? raw.location : '') || 'Academic / Project Work',
     status: (raw.status || 'PENDING').toUpperCase() as any,
     pickupReport,
     returnReport,
@@ -448,6 +449,7 @@ export const apiClient = {
     equipmentId: string;
     startDateTime: string;
     endDateTime: string;
+    location?: string;
     purpose: string;
     equipmentName?: string;
     equipmentImage?: string;
@@ -466,7 +468,8 @@ export const apiClient = {
         equipmentId: data.equipmentId,
         startDate: data.startDateTime,
         endDate: data.endDateTime,
-        location: data.purpose,
+        location: data.location || undefined,
+        purpose: data.purpose,
         borrowerName: data.borrowerName,
         borrowerEmail: data.borrowerEmail,
       };

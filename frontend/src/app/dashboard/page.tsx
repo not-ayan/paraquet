@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   ZoomIn,
   Bot,
+  MapPin,
   X
 } from 'lucide-react';
 import { useAuth, useUser } from '@clerk/nextjs';
@@ -332,6 +333,12 @@ export default function DashboardPage() {
                             <Calendar className="w-3.5 h-3.5 flex-shrink-0 text-[#70706B]" />
                             <span>{dateRange} ({timeRange})</span>
                           </span>
+                          {b.location && (
+                            <span className="flex items-center gap-1.5 text-[#111110] font-medium bg-[#F8F8F6] px-2 py-0.5 rounded-md border border-[#E5E5E0]">
+                              <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-[#E11D48]" />
+                              <span>{b.location}</span>
+                            </span>
+                          )}
                           {requestedDate && (
                             <span className="flex items-center gap-1.5">
                               <Clock className="w-3.5 h-3.5 flex-shrink-0 text-[#70706B]" />
@@ -343,6 +350,11 @@ export default function DashboardPage() {
                             <span>Borrower: {(!b.borrowerName || b.borrowerName === 'Student Borrower' || b.borrowerName === 'Campus Borrower') ? user.name : b.borrowerName}</span>
                           </span>
                         </div>
+                        {b.purpose && b.purpose !== 'Academic / Project Work' && b.purpose !== 'Tezpur University, Assam' && (
+                          <div className="text-[11px] text-[#70706B] italic pt-1">
+                            Purpose: &ldquo;{b.purpose}&rdquo;
+                          </div>
+                        )}
                       </div>
                     </div>
 
