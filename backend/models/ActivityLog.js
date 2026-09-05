@@ -4,6 +4,32 @@ const { Schema, model } = require('mongoose');
  * Backs GET /api/activity/me (filter by user) and doubles as an audit log.
  * Write one of these every time a booking or equipment record changes state.
  */
+const conditionReportSchema = new Schema(
+  {
+    type: { type: String, enum: ['pickup', 'return', 'inspection'] },
+    condition: {
+      type: String,
+      enum: ['excellent', 'good', 'fair', 'poor', 'damaged', 'under_repair'],
+    },
+    photos: [{ type: String }],
+    notes: { type: String },
+    aiSimilarityScore: { type: Number },
+    aiFlagged: { type: Boolean, default: false },
+    aiAnalysis: {
+      detailedSummary: { type: String },
+      conditionRating: { type: String },
+      cosmeticFlaws: [{ type: String }],
+      actualDamage: [{ type: String }],
+      damageType: { type: String },
+      damageDetected: { type: Boolean, default: false },
+      detailedDiscrepancyReport: { type: String },
+      recommendedAction: { type: String },
+    },
+    recordedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const activityLogSchema = new Schema(
   {
     user: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
@@ -28,29 +54,7 @@ const activityLogSchema = new Schema(
     booking: { type: Schema.Types.ObjectId, ref: 'Booking' },
     equipment: { type: Schema.Types.ObjectId, ref: 'Equipment', index: true },
     message: { type: String }, // short human-readable line for the activity feed
-    conditionReport: {
-      type: { type: String, enum: ['pickup', 'return', 'inspection'] },
-      condition: {
-        type: String,
-        enum: ['excellent', 'good', 'fair', 'poor', 'damaged', 'under_repair'],
-        default: 'good',
-      },
-      photos: [{ type: String }],
-      notes: { type: String },
-      aiSimilarityScore: { type: Number },
-      aiFlagged: { type: Boolean, default: false },
-      aiAnalysis: {
-        detailedSummary: { type: String },
-        conditionRating: { type: String },
-        cosmeticFlaws: [{ type: String }],
-        actualDamage: [{ type: String }],
-        damageType: { type: String },
-        damageDetected: { type: Boolean, default: false },
-        detailedDiscrepancyReport: { type: String },
-        recommendedAction: { type: String },
-      },
-      recordedAt: { type: Date, default: Date.now },
-    },
+    conditionReport: { type: conditionReportSchema, default: undefined },
   },
   { timestamps: true }
 );

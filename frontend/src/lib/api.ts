@@ -62,8 +62,10 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
       if (clerkUser) {
         const name = clerkUser.fullName || clerkUser.firstName || clerkUser.username || '';
         const email = clerkUser.primaryEmailAddress?.emailAddress || '';
+        const avatar = clerkUser.imageUrl || '';
         if (name) headers['x-user-name'] = encodeURIComponent(name);
         if (email) headers['x-user-email'] = encodeURIComponent(email);
+        if (avatar) headers['x-user-avatar'] = encodeURIComponent(avatar);
       }
     }
   } catch (err) {
@@ -100,9 +102,11 @@ function adaptEquipment(raw: any): Equipment {
     description: raw.description || 'Quality equipment available for verified borrowing at Tezpur University, Assam.',
     category: raw.category || 'General',
     location: raw.location || 'Tezpur University, Assam',
-    ownerId: raw.addedBy?._id || raw.addedBy || 'steward',
+    ownerId: raw.addedBy?.clerkId || raw.addedBy?._id || (typeof raw.addedBy === 'string' ? raw.addedBy : 'steward'),
     ownerName: raw.addedBy?.name || 'Campus Steward',
-    ownerAvatar: raw.addedBy?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+    ownerAvatar: raw.addedBy?.avatarUrl || undefined,
+    ownerClerkId: raw.addedBy?.clerkId || undefined,
+    ownerEmail: raw.addedBy?.email || undefined,
     images,
     currentCondition: conditionStatus as any,
     approvalStatus: approvalStatus as any,
@@ -209,10 +213,12 @@ function adaptActivityLog(a: any): ActivityLog {
 
   let conditionReport: ActivityLog['conditionReport'] = undefined;
 
-  if (a.conditionReport && a.type !== 'condition_flagged' && (a.conditionReport.photos?.length > 0 || a.conditionReport.condition || a.conditionReport.notes)) {
+  const isConditionEvent = a.type === 'pickup_recorded' || a.type === 'return_recorded' || a.type === 'condition_flagged';
+
+  if (isConditionEvent && a.conditionReport && (a.conditionReport.type || (a.conditionReport.photos && a.conditionReport.photos.length > 0) || a.conditionReport.notes || a.conditionReport.aiAnalysis)) {
     const rawCond = a.conditionReport;
     const gradeUpper = (rawCond.condition || 'GOOD').toUpperCase() as any;
-    const typeUpper = (rawCond.type || (a.type?.includes('pickup') ? 'PICKUP' : 'RETURN')).toUpperCase() as any;
+    const typeUpper = (rawCond.type || (a.type === 'pickup_recorded' ? 'PICKUP' : 'RETURN')).toUpperCase() as any;
 
     conditionReport = {
       type: typeUpper,
@@ -221,10 +227,11 @@ function adaptActivityLog(a: any): ActivityLog {
       notes: rawCond.notes || undefined,
       aiFlagged: Boolean(rawCond.aiFlagged),
       aiSimilarityScore: typeof rawCond.aiSimilarityScore === 'number' ? rawCond.aiSimilarityScore : undefined,
+      aiAnalysis: rawCond.aiAnalysis || undefined,
       recordedAt: rawCond.recordedAt || a.createdAt,
       recordedBy: userName,
     };
-  } else if (bk) {
+  } else if (bk && isConditionEvent) {
     if (a.type === 'pickup_recorded' && bk.pickupCondition) {
       const pc = bk.pickupCondition;
       const grade = (pc.condition || 'GOOD').toUpperCase() as any;
@@ -348,6 +355,22 @@ export const apiClient = {
       console.warn('API getEquipment fallback to local store:', err);
     }
     return CommuneStore.getAllEquipment(filters);
+  },
+
+  async getMyEquipment(): Promise<Equipment[]> {
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_BASE}/equipment/my`, { headers });
+      if (res.ok) {
+        const rawItems = await res.json();
+        if (Array.isArray(rawItems)) {
+          return rawItems.map(adaptEquipment);
+        }
+      }
+    } catch (err) {
+      console.warn('API getMyEquipment fallback:', err);
+    }
+    return [];
   },
 
   async getEquipmentById(id: string): Promise<Equipment | undefined> {
