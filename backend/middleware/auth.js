@@ -23,19 +23,36 @@ async function requireUser(req, res, next) {
       ? decodeURIComponent(req.headers['x-user-email']) 
       : (req.body?.borrowerEmail || req.body?.email);
 
-    let user = await User.findOne({ clerkId: userId });
+    let user = await User.findOne({
+      $or: [
+        { clerkId: userId },
+        ...(clientEmail ? [{ email: clientEmail }] : [])
+      ]
+    });
+
     if (!user) {
       user = await User.create({
         clerkId: userId,
         email: clientEmail || `${userId}@placeholder.local`,
         name: clientName || 'Campus Borrower',
       });
-    } else if (clientName && (!user.name || user.name === 'Student Borrower' || user.name === 'Campus Borrower' || user.name !== clientName)) {
-      user.name = clientName;
+    } else {
+      let needSave = false;
+      if (!user.clerkId || user.clerkId !== userId) {
+        user.clerkId = userId;
+        needSave = true;
+      }
+      if (clientName && (!user.name || user.name === 'Student Borrower' || user.name === 'Campus Borrower' || user.name !== clientName)) {
+        user.name = clientName;
+        needSave = true;
+      }
       if (clientEmail && (!user.email || user.email.includes('placeholder.local'))) {
         user.email = clientEmail;
+        needSave = true;
       }
-      await user.save();
+      if (needSave) {
+        await user.save();
+      }
     }
     req.dbUser = user;
     next();

@@ -13,7 +13,8 @@ router.get('/me', requireUser, async (req, res, next) => {
       .populate('booking', 'startDate endDate status pickupCondition returnCondition location borrowerName borrowerEmail')
       .populate('user', 'name email avatarUrl clerkId')
       .sort({ createdAt: -1 })
-      .limit(Number(limit));
+      .limit(Number(limit))
+      .lean();
     res.json(activity);
   } catch (err) {
     next(err);
@@ -29,7 +30,8 @@ router.get('/equipment/:equipmentId', async (req, res, next) => {
       .populate('booking', 'startDate endDate status pickupCondition returnCondition location borrowerName borrowerEmail')
       .populate('user', 'name email avatarUrl clerkId')
       .sort({ createdAt: -1 })
-      .limit(Number(limit));
+      .limit(Number(limit))
+      .lean();
     res.json(activity);
   } catch (err) {
     next(err);

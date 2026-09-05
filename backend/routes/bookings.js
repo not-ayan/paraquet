@@ -2,6 +2,7 @@ const express = require('express');
 const { Booking, Equipment, ActivityLog } = require('../models');
 const { requireUser } = require('../middleware/auth');
 const { compareConditionPhotos } = require('../services/aiCondition');
+const memoryCache = require('../lib/cache');
 
 const router = express.Router();
 
@@ -31,7 +32,8 @@ router.get('/me', requireUser, async (req, res, next) => {
   try {
     const bookings = await Booking.find({ user: req.dbUser._id })
       .populate('equipment user')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
     res.json(bookings);
   } catch (err) {
     next(err);
@@ -46,7 +48,8 @@ router.get('/equipment/:equipmentId', async (req, res, next) => {
       status: { $in: ['pending', 'approved', 'active', 'overdue'] },
     })
       .populate('user', 'name email avatarUrl clerkId')
-      .sort({ startDate: 1 });
+      .sort({ startDate: 1 })
+      .lean();
     res.json(bookings);
   } catch (err) {
     next(err);
@@ -56,10 +59,11 @@ router.get('/equipment/:equipmentId', async (req, res, next) => {
 // GET /api/bookings/:id
 router.get('/:id', requireUser, async (req, res, next) => {
   try {
-    const booking = await Booking.findById(req.params.id).populate('equipment user');
+    const booking = await Booking.findById(req.params.id).populate('equipment user').lean();
     if (!booking) return res.status(404).json({ error: 'Not found' });
 
-    const isOwner = booking.user._id.toString() === req.dbUser._id.toString();
+    const ownerId = booking.user?._id ? booking.user._id.toString() : booking.user?.toString();
+    const isOwner = ownerId === req.dbUser._id.toString();
     if (!isOwner && req.dbUser.role !== 'admin') {
       return res.status(403).json({ error: 'Not allowed' });
     }
@@ -118,6 +122,7 @@ router.post('/', requireUser, async (req, res, next) => {
     });
 
     await booking.populate('equipment user');
+    memoryCache.clearPrefix('equipment:');
 
     res.status(201).json(booking);
   } catch (err) {
@@ -151,6 +156,7 @@ router.patch('/:id/cancel', requireUser, async (req, res, next) => {
       message: 'Booking cancelled',
     });
 
+    memoryCache.clearPrefix('equipment:');
     res.json(booking);
   } catch (err) {
     next(err);
@@ -202,6 +208,7 @@ router.post('/:id/pickup-condition', requireUser, async (req, res, next) => {
     });
 
     await booking.populate('equipment user');
+    memoryCache.clearPrefix('equipment:');
     res.json(booking);
   } catch (err) {
     next(err);
@@ -302,6 +309,7 @@ router.post('/:id/return-condition', requireUser, async (req, res, next) => {
     }
 
     await booking.populate('equipment user');
+    memoryCache.clearPrefix('equipment:');
     res.json(booking);
   } catch (err) {
     next(err);

@@ -13,7 +13,12 @@ async function connectDB() {
 
   try {
     await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 4000,
+      socketTimeoutMS: 45000,
+      minPoolSize: 5,       // Keep 5 warm connections open to eliminate handshake lag
+      maxPoolSize: 25,      // Handle burst queries efficiently on M0 cluster
+      family: 4,            // Force IPv4 to bypass Windows IPv6 dual-stack lookup delays
+      heartbeatFrequencyMS: 10000,
     });
     console.log('MongoDB connected successfully');
     return mongoose.connection;
@@ -25,4 +30,9 @@ async function connectDB() {
   }
 }
 
+function isDbConnected() {
+  return mongoose.connection.readyState === 1;
+}
+
 module.exports = connectDB;
+module.exports.isDbConnected = isDbConnected;

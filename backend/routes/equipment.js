@@ -1,6 +1,8 @@
 const express = require('express');
 const { Equipment, Booking, ActivityLog } = require('../models');
 const { requireUser } = require('../middleware/auth');
+const memoryCache = require('../lib/cache');
+const { isDbConnected } = require('../lib/db');
 
 const router = express.Router();
 
@@ -8,6 +10,21 @@ const router = express.Router();
 router.get('/', async (req, res, next) => {
   try {
     const { q, category, tag, startDate, endDate, availableOnly, page = 1, limit = 50 } = req.query;
+
+    // Fast-path: return cached catalogue response if present
+    const cacheKey = `equipment:list:${JSON.stringify(req.query)}`;
+    const cached = memoryCache.get(cacheKey);
+    if (cached) {
+      res.setHeader('X-Cache', 'HIT');
+      return res.json(cached);
+    }
+
+    if (!isDbConnected()) {
+      return res.status(503).json({ 
+        error: 'Database connection is initializing or reconnecting. Please retry in a moment.' 
+      });
+    }
+
     const filter = { approvalStatus: 'approved' };
     if (category && category !== 'All') filter.category = category;
     if (tag) filter.tags = tag;
@@ -73,6 +90,9 @@ router.get('/', async (req, res, next) => {
       }
     }
 
+    // Cache catalogue results for 20 seconds
+    memoryCache.set(cacheKey, items, 20);
+    res.setHeader('X-Cache', 'MISS');
     res.json(items);
   } catch (err) {
     next(err);
@@ -82,8 +102,22 @@ router.get('/', async (req, res, next) => {
 // GET /api/equipment/:id
 router.get('/:id', async (req, res, next) => {
   try {
-    const item = await Equipment.findById(req.params.id);
+    const cacheKey = `equipment:detail:${req.params.id}`;
+    const cached = memoryCache.get(cacheKey);
+    if (cached) {
+      res.setHeader('X-Cache', 'HIT');
+      return res.json(cached);
+    }
+
+    if (!isDbConnected()) {
+      return res.status(503).json({ error: 'Database is reconnecting. Please retry.' });
+    }
+
+    const item = await Equipment.findById(req.params.id).lean();
     if (!item) return res.status(404).json({ error: 'Not found' });
+
+    memoryCache.set(cacheKey, item, 30);
+    res.setHeader('X-Cache', 'MISS');
     res.json(item);
   } catch (err) {
     next(err);
@@ -114,6 +148,7 @@ router.post('/', requireUser, async (req, res, next) => {
       message: `Added ${item.name} (pending approval)`,
     });
 
+    memoryCache.clearPrefix('equipment:');
     res.status(201).json(item);
   } catch (err) {
     next(err);
@@ -137,6 +172,7 @@ router.patch('/:id', requireUser, async (req, res, next) => {
     });
 
     await item.save();
+    memoryCache.clearPrefix('equipment:');
     res.json(item);
   } catch (err) {
     next(err);
@@ -197,6 +233,7 @@ router.patch('/:id/status', requireUser, async (req, res, next) => {
       message: `Equipment status changed from ${previousValue.toUpperCase()} to ${newValue.toUpperCase()}: "${reason.trim()}"`,
     });
 
+    memoryCache.clearPrefix('equipment:');
     res.json(item);
   } catch (err) {
     next(err);
@@ -215,6 +252,7 @@ router.delete('/:id', requireUser, async (req, res, next) => {
     }
 
     await item.deleteOne();
+    memoryCache.clearPrefix('equipment:');
     res.status(204).end();
   } catch (err) {
     next(err);
