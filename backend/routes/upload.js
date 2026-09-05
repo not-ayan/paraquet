@@ -10,8 +10,28 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
 });
 
+// Middleware: only parse multipart if content-type is multipart/form-data
+function handleSingleUpload(req, res, next) {
+  const ct = req.headers['content-type'] || '';
+  if (ct.includes('multipart/form-data')) {
+    return upload.single('image')(req, res, next);
+  }
+  next();
+}
+
+// GET /api/upload/ping — verify Cloudinary connection
+router.get('/ping', async (req, res) => {
+  try {
+    const { cloudinary } = require('../services/cloudinary');
+    const pingResult = await cloudinary.api.ping();
+    res.json({ ok: true, ping: pingResult });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // POST /api/upload — upload single image to Cloudinary (folder defaults to 'submitted')
-router.post('/', upload.single('image'), async (req, res, next) => {
+router.post('/', handleSingleUpload, async (req, res, next) => {
   try {
     const folder = req.body?.folder || 'submitted';
 

@@ -566,16 +566,28 @@ export const apiClient = {
     return CommuneStore.getActivity().filter(a => a.entityId === equipmentId);
   },
 
-  // 6. Cloudinary Direct Upload
-  async uploadImage(file: File, folder: 'submitted' | 'approved' | 'condition_reports' = 'submitted'): Promise<string> {
-    const formData = new FormData();
-    formData.append('image', file);
-    formData.append('folder', folder);
+  // 6. Cloudinary Upload & Optimization
+  async uploadImage(
+    fileOrUrl: File | string, 
+    folder: 'submitted' | 'approved' | 'condition_reports' = 'submitted'
+  ): Promise<string> {
+    let res: Response;
+    if (typeof fileOrUrl === 'string') {
+      res = await fetch(`${API_BASE}/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl: fileOrUrl, folder }),
+      });
+    } else {
+      const formData = new FormData();
+      formData.append('image', fileOrUrl);
+      formData.append('folder', folder);
 
-    const res = await fetch(`${API_BASE}/upload`, {
-      method: 'POST',
-      body: formData,
-    });
+      res = await fetch(`${API_BASE}/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+    }
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: 'Upload failed' }));
@@ -584,5 +596,23 @@ export const apiClient = {
 
     const data = await res.json();
     return data.url;
+  },
+
+  // Cloudinary dynamic CDN transformation helper (auto-format WebP/AVIF, auto-quality, responsive scaling)
+  getOptimizedImageUrl(
+    url: string, 
+    options: { width?: number; height?: number; crop?: 'fill' | 'fit' | 'thumb' | 'scale'; quality?: number } = {}
+  ): string {
+    if (!url || !url.includes('res.cloudinary.com') || !url.includes('/image/upload/')) {
+      return url;
+    }
+    const transforms: string[] = ['f_auto', 'q_auto'];
+    if (options.width) transforms.push(`w_${options.width}`);
+    if (options.height) transforms.push(`h_${options.height}`);
+    if (options.crop) transforms.push(`c_${options.crop}`);
+    if (options.quality) transforms.push(`q_${options.quality}`);
+
+    const transformStr = transforms.join(',');
+    return url.replace('/image/upload/', `/image/upload/${transformStr}/`);
   },
 };
