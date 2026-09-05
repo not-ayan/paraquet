@@ -1,6 +1,8 @@
 const express = require('express');
 const { User, Equipment, Booking, ActivityLog } = require('../models');
 const { requireUser, requireAdmin } = require('../middleware/auth');
+const { moveToApproved } = require('../services/cloudinary');
+const memoryCache = require('../lib/cache');
  
 const router = express.Router();
  
@@ -13,15 +15,17 @@ router.get('/users', async (req, res, next) => {
     const filter = {};
     if (role) filter.role = role;
     if (q) {
+      const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       filter.$or = [
-        { name: { $regex: q, $options: 'i' } },
-        { email: { $regex: q, $options: 'i' } },
+        { name: { $regex: escaped, $options: 'i' } },
+        { email: { $regex: escaped, $options: 'i' } },
       ];
     }
     const users = await User.find(filter)
       .sort({ createdAt: -1 })
       .limit(Number(limit))
-      .skip((Number(page) - 1) * Number(limit));
+      .skip((Number(page) - 1) * Number(limit))
+      .lean();
     res.json(users);
   } catch (err) {
     next(err);
@@ -40,7 +44,8 @@ router.get('/equipment', async (req, res, next) => {
     const items = await Equipment.find(filter)
       .sort({ createdAt: -1 })
       .limit(Number(limit))
-      .skip((Number(page) - 1) * Number(limit));
+      .skip((Number(page) - 1) * Number(limit))
+      .lean();
     res.json(items);
   } catch (err) {
     next(err);
@@ -50,7 +55,9 @@ router.get('/equipment', async (req, res, next) => {
 // GET /api/admin/equipment/pending
 router.get('/equipment/pending', async (req, res, next) => {
   try {
-    const items = await Equipment.find({ approvalStatus: 'pending' }).sort({ createdAt: 1 });
+    const items = await Equipment.find({ approvalStatus: 'pending' })
+      .sort({ createdAt: 1 })
+      .lean();
     res.json(items);
   } catch (err) {
     next(err);
@@ -63,6 +70,14 @@ router.patch('/equipment/:id/approve', async (req, res, next) => {
     const item = await Equipment.findById(req.params.id);
     if (!item) return res.status(404).json({ error: 'Not found' });
  
+    // Promote images in Cloudinary from 'submitted' to 'approved' folder
+    if (item.images && item.images.length > 0) {
+      const updatedImages = await Promise.all(
+        item.images.map((img) => moveToApproved(img))
+      );
+      item.images = updatedImages;
+    }
+
     item.approvalStatus = 'approved';
     await item.save();
  
@@ -74,6 +89,7 @@ router.patch('/equipment/:id/approve', async (req, res, next) => {
         message: `${item.name} was approved`,
       });
     }
+    memoryCache.clearPrefix('equipment:');
     res.json(item);
   } catch (err) {
     next(err);
@@ -98,7 +114,38 @@ router.patch('/equipment/:id/reject', async (req, res, next) => {
         message: `${item.name} was rejected${req.body?.reason ? `: ${req.body.reason}` : ''}`,
       });
     }
+    memoryCache.clearPrefix('equipment:');
     res.json(item);
+  } catch (err) {
+    next(err);
+  }
+});
+ 
+// DELETE /api/admin/equipment/:id — permanently delete equipment
+router.delete('/equipment/:id', async (req, res, next) => {
+  try {
+    const item = await Equipment.findById(req.params.id);
+    if (!item) return res.status(404).json({ error: 'Not found' });
+
+    // Cancel any pending or approved bookings for this item to prevent orphans
+    await Booking.updateMany(
+      { equipment: item._id, status: { $in: ['pending', 'approved'] } },
+      { status: 'cancelled', cancelReason: 'Equipment deleted by administrator' }
+    );
+
+    await item.deleteOne();
+
+    if (item.addedBy) {
+      await ActivityLog.create({
+        user: req.dbUser._id,
+        type: 'equipment_rejected',
+        equipment: item._id,
+        message: `Admin deleted equipment: ${item.name}`,
+      });
+    }
+
+    memoryCache.clearPrefix('equipment:');
+    res.json({ success: true, message: `Equipment "${item.name}" deleted successfully` });
   } catch (err) {
     next(err);
   }
@@ -109,7 +156,8 @@ router.get('/bookings/pending', async (req, res, next) => {
   try {
     const bookings = await Booking.find({ status: 'pending' })
       .populate('equipment user')
-      .sort({ createdAt: 1 });
+      .sort({ createdAt: 1 })
+      .lean();
     res.json(bookings);
   } catch (err) {
     next(err);
@@ -137,6 +185,7 @@ router.patch('/bookings/:id/approve', async (req, res, next) => {
       equipment: booking.equipment,
       message: 'Booking approved',
     });
+    memoryCache.clearPrefix('equipment:');
     res.json(booking);
   } catch (err) {
     next(err);
@@ -162,6 +211,7 @@ router.patch('/bookings/:id/reject', async (req, res, next) => {
       equipment: booking.equipment,
       message: 'Booking rejected',
     });
+    memoryCache.clearPrefix('equipment:');
     res.json(booking);
   } catch (err) {
     next(err);
@@ -178,7 +228,8 @@ router.get('/bookings/flagged', async (req, res, next) => {
       'returnCondition.adminReviewed': { $ne: true },
     })
       .populate('equipment user')
-      .sort({ updatedAt: -1 });
+      .sort({ updatedAt: -1 })
+      .lean();
     res.json(bookings);
   } catch (err) {
     next(err);
@@ -203,6 +254,9 @@ router.patch('/bookings/:id/resolve-condition', async (req, res, next) => {
         .join('\n');
     }
     if (damageFee) {
+      if (!booking.charges) {
+        booking.charges = { overdueFee: 0, damageFee: 0, status: 'none' };
+      }
       booking.charges.damageFee = Number(damageFee);
       booking.charges.status = 'pending';
     }
@@ -233,7 +287,8 @@ router.get('/activity', async (req, res, next) => {
       .populate('user equipment booking')
       .sort({ createdAt: -1 })
       .limit(Number(limit))
-      .skip((Number(page) - 1) * Number(limit));
+      .skip((Number(page) - 1) * Number(limit))
+      .lean();
     res.json(activity);
   } catch (err) {
     next(err);

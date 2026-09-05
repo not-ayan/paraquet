@@ -12,6 +12,8 @@ export default function AllEquipmentPage() {
   const [error, setError] = useState(null);
   const [approvalFilter, setApprovalFilter] = useState('');
   const [savingId, setSavingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+  const [successMsg, setSuccessMsg] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -48,6 +50,31 @@ export default function AllEquipmentPage() {
     }
   }
 
+  async function handleDelete(id, name) {
+    const confirmed = window.confirm(
+      `Are you sure you want to permanently delete "${name}"? This action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeletingId(id);
+    setError(null);
+    setSuccessMsg(null);
+    try {
+      const token = await getToken();
+      await apiFetch(`/api/admin/equipment/${id}`, {
+        method: 'DELETE',
+        token,
+      });
+      setItems((prev) => prev.filter((i) => i._id !== id));
+      setSuccessMsg(`"${name}" was permanently deleted.`);
+      setTimeout(() => setSuccessMsg(null), 4000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   return (
     <div className="container">
       <h1>All Equipment</h1>
@@ -60,6 +87,7 @@ export default function AllEquipmentPage() {
         </select>
       </div>
       {error && <p className="error">{error}</p>}
+      {successMsg && <p style={{ color: '#0a7a2f', marginTop: 12, fontWeight: 500 }}>{successMsg}</p>}
       {items.length === 0 && !error && <p className="empty">No equipment matches this filter.</p>}
       {items.length > 0 && (
         <table>
@@ -70,6 +98,7 @@ export default function AllEquipmentPage() {
               <th>Qty</th>
               <th>Approval</th>
               <th>Availability</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -82,13 +111,23 @@ export default function AllEquipmentPage() {
                 <td>
                   <select
                     value={item.availability}
-                    disabled={savingId === item._id}
+                    disabled={savingId === item._id || deletingId === item._id}
                     onChange={(e) => updateAvailability(item._id, e.target.value)}
                   >
                     {AVAILABILITY_OPTIONS.map((opt) => (
                       <option key={opt} value={opt}>{opt}</option>
                     ))}
                   </select>
+                </td>
+                <td>
+                  <button
+                    className="btn delete"
+                    disabled={deletingId === item._id || savingId === item._id}
+                    onClick={() => handleDelete(item._id, item.name)}
+                    title={`Delete ${item.name}`}
+                  >
+                    {deletingId === item._id ? 'Deleting...' : 'Delete'}
+                  </button>
                 </td>
               </tr>
             ))}

@@ -15,20 +15,30 @@ async function main() {
     process.exit(1);
   }
 
-  await connectDB();
-
-  const user = await User.findOneAndUpdate(
-    { email },
-    { role: 'admin' },
-    { new: true }
-  );
-
-  if (!user) {
-    console.error(`No user found with email ${email}. Sign in at least once first.`);
+  const conn = await connectDB();
+  if (!conn) {
+    console.error('Cannot update admin: MongoDB connection could not be established.');
+    console.error('Please verify your IP is whitelisted in MongoDB Atlas Network Access.');
     process.exit(1);
   }
 
-  console.log(`${user.email} (${user.clerkId}) is now role: ${user.role}`);
+  const emailRegex = new RegExp(`^${email.trim()}$`, 'i');
+  let user = await User.findOne({ email: emailRegex });
+
+  if (!user) {
+    user = await User.create({
+      email: email.trim().toLowerCase(),
+      name: email.split('@')[0],
+      clerkId: `pre_admin_${Date.now()}`,
+      role: 'admin',
+    });
+    console.log(`Created new admin account for ${user.email} (Role: ${user.role})`);
+  } else {
+    user.role = 'admin';
+    await user.save();
+    console.log(`Promoted existing user ${user.email} (${user.clerkId}) to role: ${user.role}`);
+  }
+
   process.exit(0);
 }
 

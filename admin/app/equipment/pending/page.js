@@ -37,6 +37,20 @@ export default function PendingEquipmentPage() {
     }
   }
 
+  async function handleDelete(id, name) {
+    if (!window.confirm(`Permanently delete "${name}"? This action cannot be undone.`)) return;
+    setBusyId(id);
+    try {
+      const token = await getToken();
+      await apiFetch(`/api/admin/equipment/${id}`, { method: 'DELETE', token });
+      setItems((prev) => prev.filter((i) => i._id !== id));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <div className="container">
       <h1>Pending Equipment</h1>
@@ -50,7 +64,7 @@ export default function PendingEquipmentPage() {
               <th>Category</th>
               <th>Qty</th>
               <th>Submitted</th>
-              <th></th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -74,6 +88,13 @@ export default function PendingEquipmentPage() {
                     onClick={() => act(item._id, 'reject')}
                   >
                     Reject
+                  </button>
+                  <button
+                    className="btn delete"
+                    disabled={busyId === item._id}
+                    onClick={() => handleDelete(item._id, item.name)}
+                  >
+                    Delete
                   </button>
                 </td>
               </tr>
