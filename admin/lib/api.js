@@ -13,6 +13,14 @@ export async function apiFetch(path, { token, ...options } = {}) {
   };
   if (token) headers.Authorization = `Bearer ${token}`;
 
+  if (typeof window !== 'undefined' && window.Clerk?.user) {
+    const cu = window.Clerk.user;
+    const email = cu.primaryEmailAddress?.emailAddress;
+    const name = cu.fullName || cu.firstName || cu.username;
+    if (email) headers['x-user-email'] = encodeURIComponent(email);
+    if (name) headers['x-user-name'] = encodeURIComponent(name);
+  }
+
   const res = await fetch(`${API_URL}${path}`, { ...options, headers });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));

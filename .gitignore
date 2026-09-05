@@ -25,5 +25,8 @@ out/
 # OS Files
 .DS_Store
 Thumbs.db
+
+#bleh
 .agents
 .claude/
+skills-lock.json

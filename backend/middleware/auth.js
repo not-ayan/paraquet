@@ -1,4 +1,4 @@
-const { clerkMiddleware } = require('@clerk/express');
+const { clerkMiddleware, clerkClient } = require('@clerk/express');
 const { User } = require('../models');
 
 // Mount globally in server.js — attaches req.auth on every request when a
@@ -16,12 +16,30 @@ async function requireUser(req, res, next) {
     const userId = req.auth?.userId;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-    const clientName = req.headers['x-user-name'] 
+    let clientName = req.headers['x-user-name'] 
       ? decodeURIComponent(req.headers['x-user-name']) 
       : (req.body?.borrowerName || req.body?.name);
-    const clientEmail = req.headers['x-user-email'] 
+    let clientEmail = req.headers['x-user-email'] 
       ? decodeURIComponent(req.headers['x-user-email']) 
       : (req.body?.borrowerEmail || req.body?.email);
+
+    // If client email was not passed in headers (e.g. admin app direct token call),
+    // fetch user profile directly from Clerk API to ensure role/email mapping is exact.
+    if (!clientEmail && clerkClient?.users) {
+      try {
+        const cu = await clerkClient.users.getUser(userId);
+        if (cu) {
+          if (!clientEmail && cu.emailAddresses?.length) {
+            clientEmail = cu.emailAddresses[0].emailAddress;
+          }
+          if (!clientName) {
+            clientName = [cu.firstName, cu.lastName].filter(Boolean).join(' ') || cu.username;
+          }
+        }
+      } catch (err) {
+        // Fallback silently if Clerk API rate limits or network issues occur
+      }
+    }
 
     let user = await User.findOne({
       $or: [
