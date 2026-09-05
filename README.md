@@ -2,8 +2,6 @@
 
 [![GitHub repository](https://img.shields.io/badge/GitHub-not--ayan%2Fparaquet-181717?logo=github)](https://github.com/not-ayan/paraquet)
 
-**Repository**: [https://github.com/not-ayan/paraquet](https://github.com/not-ayan/paraquet)
-
 A full-stack, enterprise-grade equipment sharing, reservation, and asset custody management system built for the **Tezpur University** student and academic community in Assam. The platform eliminates equipment hoarding, automates reservation workflows, enforces loan durations, and maintains ironclad accountability through multi-point condition reporting, **Gemini 3.5 Flash AI multimodal vision inspection**, and real-time administrative custody tracking.
 
 ---
