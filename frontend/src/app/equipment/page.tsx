@@ -168,7 +168,7 @@ export default function EquipmentCataloguePage() {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-6 border-b border-[#E5E5E0]">
         <div className="space-y-1.5">
           <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#8E8E88] block">
-            Catalogue
+            Equipment Catalog
           </span>
           <h1 className="text-2xl sm:text-4xl font-extrabold text-[#111110] tracking-tight">
             Tezpur University Equipment Directory

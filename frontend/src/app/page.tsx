@@ -172,8 +172,8 @@ export default function HomePage() {
                 </div>
                 <div className="mt-2 flex items-center justify-between">
                   <span className="font-bold text-xs text-[#111110]">Sony Alpha A7</span>
-                  <span className="font-handwriting text-xs text-[#1B7A42] font-bold">
-                    Better than buying &rarr;
+                  <span className="text-[11px] text-[#1B7A42] font-semibold">
+                    Campus verified &bull;
                   </span>
                 </div>
               </div>
@@ -193,8 +193,8 @@ export default function HomePage() {
                   </span>
                 </div>
                 <div className="mt-1.5 text-right">
-                  <span className="font-handwriting text-xs text-[#70706B] block">
-                    Idea, Work, Together
+                  <span className="text-[11px] text-[#70706B] font-medium block">
+                    Research &bull; Projects
                   </span>
                 </div>
               </div>
@@ -214,8 +214,8 @@ export default function HomePage() {
                   </span>
                 </div>
                 <div className="mt-1.5">
-                  <span className="font-handwriting text-xs text-[#70706B]">
-                    Shared tools balance
+                  <span className="text-[11px] text-[#70706B] font-medium">
+                    Department Labs
                   </span>
                 </div>
               </div>
@@ -236,6 +236,7 @@ export default function HomePage() {
                 </div>
                 <div className="mt-1 flex items-center justify-between">
                   <span className="text-[11px] font-bold text-[#111110]">Studio Over-Ear</span>
+                  <span className="text-[10px] text-[#1B7A42] font-bold">Available</span>
                 </div>
               </div>
 
@@ -419,7 +420,7 @@ export default function HomePage() {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div className="space-y-1">
             <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#8E8E88] block">
-              Catalogue
+              Equipment Catalog
             </span>
             <h2 className="text-2xl sm:text-3xl font-bold text-[#111110] tracking-tight">
               Explore what&apos;s available
@@ -542,7 +543,7 @@ export default function HomePage() {
             href="/equipment"
             className="text-xs font-bold text-[#111110] hover:underline inline-flex items-center gap-1"
           >
-            <span>Browse Full Catalogue</span>
+            <span>Browse Full Catalog</span>
             <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
