@@ -8,7 +8,11 @@ import {
   CheckCircle2, 
   Plus, 
   Trash2,
-  Info
+  Info,
+  Camera,
+  Wrench,
+  ShieldCheck,
+  Upload
 } from 'lucide-react';
 import { apiClient, getFallbackImage } from '@/lib/api';
 import { EquipmentCategory } from '@/lib/types';
@@ -61,7 +65,6 @@ export default function NewEquipmentPage() {
       setImages((prev) => [...prev, url]);
     } catch (err: any) {
       console.warn('Cloudinary upload error:', err);
-      // Fallback to local object URL for preview if offline/demo
       const localUrl = URL.createObjectURL(file);
       setImages((prev) => [...prev, localUrl]);
     } finally {
@@ -122,52 +125,57 @@ export default function NewEquipmentPage() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-6">
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-6">
       
       {/* Back Link */}
       <Link
         href="/equipment"
-        className="inline-flex items-center gap-1.5 text-fluid-body font-semibold text-[#70706B] hover:text-[#111110] transition-colors"
+        className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#70706B] hover:text-[#111110] transition-colors"
       >
-        <ArrowLeft className="w-4 h-4" /> Back to Catalog
+        <ArrowLeft className="w-4 h-4" /> Back to Equipment Catalog
       </Link>
 
       {/* Header */}
-      <div className="space-y-1">
-        <h1 className="text-fluid-h1 font-bold text-[#111110]">
-          List Equipment
+      <div className="space-y-1.5">
+        <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#8E8E88] block">
+          Contribution
+        </span>
+        <h1 className="text-2xl sm:text-4xl font-extrabold text-[#111110] tracking-tight">
+          List Campus Equipment
         </h1>
-        <p className="text-fluid-body text-[#70706B]">
-          Make idle tools and cameras available to verified campus students and creators.
+        <p className="text-xs sm:text-sm text-[#70706B]">
+          Make idle maker tools, cameras, and audio arrays available to verified campus students and creators.
         </p>
       </div>
 
       {createdSuccess ? (
-        <div className="card-paraquet p-10 text-center space-y-3 bg-[#E8F5EB] border-transparent animate-in zoom-in-95">
+        <div className="rounded-[32px] border border-[#A7F3D0] p-10 sm:p-12 text-center space-y-3.5 bg-[#E8F5EB] animate-in zoom-in-95 shadow-sm">
           <CheckCircle2 className="w-12 h-12 text-[#1B7A42] mx-auto" />
-          <h2 className="text-fluid-h2 font-bold text-[#1B7A42]">
+          <h2 className="text-xl sm:text-2xl font-bold text-[#1B7A42]">
             Listing Submitted for Moderation!
           </h2>
-          <p className="text-fluid-body text-[#1B7A42]/90 max-w-md mx-auto">
+          <p className="text-xs sm:text-sm text-[#1B7A42]/90 max-w-md mx-auto leading-relaxed">
             Your item and photos have been received in the <strong>submitted</strong> holding queue pending administrator verification.
           </p>
-          <span className="text-fluid-micro text-[#70706B] block">
-            Redirecting to dashboard...
+          <span className="text-xs text-[#70706B] block">
+            Redirecting to your dashboard...
           </span>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="card-paraquet p-6 sm:p-8 space-y-6">
+        <form onSubmit={handleSubmit} className="rounded-[32px] border border-[#E5E5E0] bg-white p-6 sm:p-10 space-y-7 shadow-xs">
           
-          <div className="p-4 bg-[#EDEDEA] rounded-2xl flex items-start gap-3 text-fluid-micro text-[#70706B]">
+          {/* Moderation Note */}
+          <div className="p-4 bg-[#F8F8F6] border border-[#E5E5E0] rounded-2xl flex items-start gap-3 text-xs text-[#70706B]">
             <Info className="w-4 h-4 text-[#111110] flex-shrink-0 mt-0.5" />
             <div>
               <strong className="text-[#111110] block mb-0.5">Automated Moderation & Cloudinary Routing</strong>
-              New submissions are stored in Cloudinary folder <code className="bg-white/80 px-1.5 py-0.5 rounded font-mono text-[#B25E09]">submitted/</code> with status <span className="font-semibold text-[#B25E09]">PENDING</span>. Upon admin approval, photos move to <code className="bg-white/80 px-1.5 py-0.5 rounded font-mono text-[#1B7A42]">approved/</code>.
+              New submissions are stored in Cloudinary folder <code className="bg-white px-1.5 py-0.5 rounded-md font-mono text-[#B25E09] border border-[#E5E5E0]">submitted/</code> with status <span className="font-semibold text-[#B25E09]">PENDING</span>. Upon admin approval, photos move to <code className="bg-white px-1.5 py-0.5 rounded-md font-mono text-[#1B7A42] border border-[#E5E5E0]">approved/</code>.
             </div>
           </div>
 
+          {/* 1. Name */}
           <div className="space-y-1.5">
-            <label className="block text-fluid-micro uppercase font-bold tracking-wider text-[#70706B]">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
               Equipment Name *
             </label>
             <input
@@ -176,19 +184,20 @@ export default function NewEquipmentPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Sony Alpha A7 IV Mirrorless Camera"
-              className="input-paraquet text-fluid-body"
+              className="input-paraquet rounded-2xl h-[46px] text-xs sm:text-sm font-semibold"
             />
           </div>
 
+          {/* 2. Category & Location */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="block text-fluid-micro uppercase font-bold tracking-wider text-[#70706B]">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
                 Category *
               </label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value as EquipmentCategory)}
-                className="input-paraquet text-fluid-body font-medium cursor-pointer"
+                className="input-paraquet rounded-2xl h-[46px] text-xs sm:text-sm font-semibold cursor-pointer"
               >
                 {categories.map((c) => (
                   <option key={c} value={c}>{c}</option>
@@ -197,7 +206,7 @@ export default function NewEquipmentPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-fluid-micro uppercase font-bold tracking-wider text-[#70706B]">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
                 Pickup / Lab Location *
               </label>
               <input
@@ -206,34 +215,36 @@ export default function NewEquipmentPage() {
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder="e.g. Media Lab Room 204"
-                className="input-paraquet text-fluid-body"
+                className="input-paraquet rounded-2xl h-[46px] text-xs sm:text-sm font-semibold"
               />
             </div>
           </div>
 
+          {/* 3. Description */}
           <div className="space-y-1.5">
-            <label className="block text-fluid-micro uppercase font-bold tracking-wider text-[#70706B]">
-              Description & Handling Instructions *
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
+              Description & Handling Guidelines *
             </label>
             <textarea
               rows={4}
               required
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe the item condition, what accessories are included, and handling guidelines..."
-              className="input-paraquet text-fluid-body resize-none"
+              placeholder="Describe the hardware condition, what cables and accessories are included, and handling guidelines..."
+              className="input-paraquet rounded-2xl text-xs sm:text-sm resize-none"
             />
           </div>
 
+          {/* 4. Condition & Max Borrow Days */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="block text-fluid-micro uppercase font-bold tracking-wider text-[#70706B]">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
                 Current Physical Condition
               </label>
               <select
                 value={currentCondition}
                 onChange={(e) => setCurrentCondition(e.target.value as 'EXCELLENT' | 'GOOD' | 'FAIR')}
-                className="input-paraquet text-fluid-body font-medium cursor-pointer"
+                className="input-paraquet rounded-2xl h-[46px] text-xs sm:text-sm font-semibold cursor-pointer"
               >
                 <option value="EXCELLENT">EXCELLENT (Like new / flawless)</option>
                 <option value="GOOD">GOOD (Minor cosmetic wear)</option>
@@ -242,7 +253,7 @@ export default function NewEquipmentPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-fluid-micro uppercase font-bold tracking-wider text-[#70706B]">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
                 Max Recommended Loan (Days)
               </label>
               <input
@@ -251,25 +262,25 @@ export default function NewEquipmentPage() {
                 max={14}
                 value={maxBorrowDays}
                 onChange={(e) => setMaxBorrowDays(parseInt(e.target.value) || 3)}
-                className="input-paraquet text-fluid-body"
+                className="input-paraquet rounded-2xl h-[46px] text-xs sm:text-sm font-semibold"
               />
             </div>
           </div>
 
-          {/* Photos */}
-          <div className="space-y-2.5">
+          {/* 5. Photos */}
+          <div className="space-y-2.5 pt-2 border-t border-[#E5E5E0]">
             <div className="flex items-center justify-between">
-              <label className="block text-fluid-micro uppercase font-bold tracking-wider text-[#70706B]">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
                 Equipment Photos (Cloudinary Upload)
               </label>
-              <span className="text-fluid-micro text-[#70706B]">Uploads to Cloudinary <code className="bg-[#EDEDEA] px-1 rounded">submitted/</code></span>
+              <span className="text-[11px] text-[#70706B]">Folder: <code className="bg-[#F5F5F3] px-1 py-0.5 rounded text-[10px]">submitted/</code></span>
             </div>
 
             {/* Direct File Picker & URL Input */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <label className="flex items-center justify-center gap-2 px-4 h-[46px] border-2 border-dashed border-[#E2E2DE] hover:border-[#111110] rounded-xl bg-white cursor-pointer transition-colors text-fluid-body font-semibold text-[#111110]">
-                <Plus className="w-4 h-4 flex-shrink-0" />
-                <span className="truncate">{isUploadingImage ? 'Uploading to Cloudinary...' : 'Upload Image File'}</span>
+              <label className="flex items-center justify-center gap-2 px-4 h-[46px] border-2 border-dashed border-[#E5E5E0] hover:border-[#111110] rounded-2xl bg-[#F8F8F6] hover:bg-white cursor-pointer transition-colors text-xs sm:text-sm font-bold text-[#111110] active:scale-98">
+                <Upload className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">{isUploadingImage ? 'Uploading to Cloudinary...' : 'Upload Photo File'}</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -285,12 +296,12 @@ export default function NewEquipmentPage() {
                   value={newImageUrl}
                   onChange={(e) => setNewImageUrl(e.target.value)}
                   placeholder="Or paste image URL..."
-                  className="input-paraquet text-fluid-body flex-grow h-[46px]"
+                  className="input-paraquet rounded-2xl text-xs sm:text-sm flex-grow h-[46px]"
                 />
                 <button
                   type="button"
                   onClick={handleAddImage}
-                  className="btn-secondary text-xs px-4 h-[46px] whitespace-nowrap"
+                  className="btn-secondary text-xs px-4 h-[46px] rounded-2xl whitespace-nowrap active:scale-95"
                 >
                   Add URL
                 </button>
@@ -298,43 +309,44 @@ export default function NewEquipmentPage() {
             </div>
 
             {uploadError && (
-              <p className="text-fluid-micro text-[#DC2626]">{uploadError}</p>
+              <p className="text-xs text-[#DC2626]">{uploadError}</p>
             )}
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
               {images.map((img, i) => (
-                <div key={i} className="relative aspect-video rounded-xl overflow-hidden bg-[#EDEDEA] group">
+                <div key={i} className="relative aspect-video rounded-2xl overflow-hidden bg-[#F8F8F6] border border-[#E5E5E0] group">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={img} alt="" className="w-full h-full object-cover" />
                   <button
                     type="button"
                     onClick={() => handleRemoveImage(i)}
-                    className="absolute top-1 right-1 p-1 bg-black/70 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute top-1.5 right-1.5 p-1.5 bg-black/70 hover:bg-black text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Remove Photo"
                   >
-                    <Trash2 className="w-3 h-3" />
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Specs */}
-          <div className="space-y-3 pt-2 border-t border-[#E2E2DE]">
+          {/* 6. Technical Specs */}
+          <div className="space-y-3 pt-2 border-t border-[#E5E5E0]">
             <div className="flex items-center justify-between">
-              <label className="block text-fluid-micro uppercase font-bold tracking-wider text-[#70706B]">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
                 Technical Specs & Accessories
               </label>
               <button
                 type="button"
                 onClick={handleAddSpec}
-                className="text-fluid-micro text-[#111110] font-semibold hover:underline flex items-center gap-1"
+                className="text-xs text-[#111110] font-bold hover:underline flex items-center gap-1"
               >
                 <Plus className="w-3.5 h-3.5" /> Add Field
               </button>
             </div>
 
             {specs.map((s, idx) => (
-              <div key={idx} className="flex gap-2 items-center">
+              <div key={idx} className="flex gap-2.5 items-center">
                 <input
                   type="text"
                   placeholder="Key (e.g. Sensor)"
@@ -344,7 +356,7 @@ export default function NewEquipmentPage() {
                     copy[idx].key = e.target.value;
                     setSpecs(copy);
                   }}
-                  className="input-paraquet text-fluid-body w-1/3 min-w-0"
+                  className="input-paraquet rounded-2xl text-xs sm:text-sm w-1/3 min-w-0 h-[44px]"
                 />
                 <input
                   type="text"
@@ -355,12 +367,13 @@ export default function NewEquipmentPage() {
                     copy[idx].value = e.target.value;
                     setSpecs(copy);
                   }}
-                  className="input-paraquet text-fluid-body flex-grow min-w-0"
+                  className="input-paraquet rounded-2xl text-xs sm:text-sm flex-grow min-w-0 h-[44px]"
                 />
                 <button
                   type="button"
                   onClick={() => handleRemoveSpec(idx)}
-                  className="p-2 text-[#70706B] hover:text-[#DC2626] flex-shrink-0"
+                  className="p-2 text-[#70706B] hover:text-[#DC2626] flex-shrink-0 transition-colors"
+                  title="Remove Field"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -369,16 +382,16 @@ export default function NewEquipmentPage() {
           </div>
 
           {/* Actions */}
-          <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E2E2DE]">
-            <Link href="/equipment" className="btn-secondary">
+          <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E5E5E0]">
+            <Link href="/equipment" className="btn-secondary rounded-full px-5 py-2.5 text-xs sm:text-sm">
               Cancel
             </Link>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="btn-primary"
+              className="btn-primary rounded-full px-6 py-2.5 text-xs sm:text-sm shadow-xs"
             >
-              {isSubmitting ? 'Submitting...' : 'Submit Listing →'}
+              {isSubmitting ? 'Submitting...' : 'Submit Equipment Listing ↗'}
             </button>
           </div>
 

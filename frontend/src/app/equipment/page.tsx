@@ -17,7 +17,6 @@ import {
   CalendarRange,
   CheckCircle2,
   AlertCircle,
-  Clock,
   Sparkles
 } from 'lucide-react';
 import { apiClient } from '@/lib/api';
@@ -98,21 +97,24 @@ export default function EquipmentCataloguePage() {
       const day = today.getDay();
       const daysUntilFri = (5 - day + 7) % 7 || 7;
       start.setDate(today.getDate() + daysUntilFri);
-      end.setDate(start.getDate() + 2);
+      end.setDate(today.getDate() + daysUntilFri + 2);
     } else if (preset === 'nextWeek') {
-      start.setDate(today.getDate() + 7);
-      end.setDate(today.getDate() + 10);
+      const day = today.getDay();
+      const daysUntilMon = (8 - day) % 7 || 7;
+      start.setDate(today.getDate() + daysUntilMon);
+      end.setDate(today.getDate() + daysUntilMon + 5);
     }
 
-    const formatYMD = (d: Date) => {
+    const fmt = (d: Date) => {
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, '0');
-      const dayStr = String(d.getDate()).padStart(2, '0');
-      return `${y}-${m}-${dayStr}`;
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
     };
 
-    setStartDate(formatYMD(start));
-    setEndDate(formatYMD(end));
+    setStartDate(fmt(start));
+    setEndDate(fmt(end));
+    setOnlyFreeForDates(true);
   };
 
   const clearDates = () => {
@@ -121,29 +123,22 @@ export default function EquipmentCataloguePage() {
     setOnlyFreeForDates(false);
   };
 
-  // Local Client Filtering
+  // Client-side filtering
   const filtered = equipmentList.filter((item) => {
-    if (item.approvalStatus !== 'APPROVED') return false;
-
     if (search.trim()) {
       const q = search.toLowerCase();
-      const matchName = (item.name || '').toLowerCase().includes(q);
-      const matchDesc = (item.description || '').toLowerCase().includes(q);
-      const matchLoc = (item.location || '').toLowerCase().includes(q);
-      if (!matchName && !matchDesc && !matchLoc) return false;
+      const matchName = item.name.toLowerCase().includes(q);
+      const matchDesc = item.description?.toLowerCase().includes(q);
+      const matchLoc = item.location?.toLowerCase().includes(q);
+      const matchCat = item.category.toLowerCase().includes(q);
+      if (!matchName && !matchDesc && !matchLoc && !matchCat) return false;
     }
 
-    if (selectedCategory !== 'All') {
-      const cat = (item.category || '').toLowerCase();
-      const sel = selectedCategory.toLowerCase();
-      if (!cat.includes(sel) && !sel.includes(cat)) return false;
-    }
-
-    if (onlyAvailable && item.availabilityStatus !== 'AVAILABLE') {
+    if (selectedCategory !== 'All' && item.category !== selectedCategory) {
       return false;
     }
 
-    if (onlyFreeForDates && item.dateAvailability && !item.dateAvailability.isAvailable) {
+    if (onlyAvailable && item.availabilityStatus !== 'AVAILABLE') {
       return false;
     }
 
@@ -152,7 +147,6 @@ export default function EquipmentCataloguePage() {
 
   // Sorting
   filtered.sort((a, b) => {
-    // When dates are active, prioritize items free on those dates
     if (startDate && endDate) {
       const aFree = a.dateAvailability?.isAvailable ? 1 : 0;
       const bFree = b.dateAvailability?.isAvailable ? 1 : 0;
@@ -168,75 +162,84 @@ export default function EquipmentCataloguePage() {
   const conflictingCount = filtered.filter(i => i.dateAvailability && !i.dateAvailability.isAvailable).length;
 
   return (
-    <div className="container-custom py-8 sm:py-12 space-y-8">
+    <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">
       
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-[#E2E2DE]">
-        <div className="space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EBEBE8] text-fluid-micro font-medium text-[#70706B]">
-            <span>Campus Repository</span>
-          </div>
-          <h1 className="text-fluid-h1 font-bold text-[#111110]">
-            Equipment Catalog
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-6 border-b border-[#E5E5E0]">
+        <div className="space-y-1.5">
+          <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#8E8E88] block">
+            Catalogue
+          </span>
+          <h1 className="text-2xl sm:text-4xl font-extrabold text-[#111110] tracking-tight">
+            Campus Equipment Directory
           </h1>
-          <p className="text-fluid-body text-[#70706B] max-w-xl">
-            Explore verified cameras, sensors, audio arrays, and fabrication tools available across campus labs.
+          <p className="text-xs sm:text-sm text-[#70706B] max-w-xl">
+            Search, filter, and inspect real-time date availability for verified hardware shared across university departments.
           </p>
         </div>
 
-        <Link href="/equipment/new" className="btn-primary self-start md:self-auto">
-          <PlusCircle className="w-4 h-4" /> List Equipment
+        <Link 
+          href="/equipment/new" 
+          className="btn-primary self-start sm:self-auto text-xs px-5 py-2.5 inline-flex items-center gap-2 shadow-2xs"
+        >
+          <PlusCircle className="w-4 h-4" /> 
+          <span>List Equipment</span>
         </Link>
       </div>
 
-      {/* Date-Wise Availability Bar */}
-      <div className="card-paraquet p-4 sm:p-6 space-y-4 bg-white border border-[#E2E2DE] rounded-2xl shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#F0F0EE] pb-3">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-[#F4F4F2] rounded-lg text-[#111110]">
+      {/* Date-Wise Availability Bento Box */}
+      <div className="rounded-[28px] border border-[#E5E5E0] bg-white p-5 sm:p-7 space-y-4 shadow-2xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#F0F0EE] pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-[#F5F5F3] border border-[#E5E5E0] flex items-center justify-center text-[#111110]">
               <CalendarRange className="w-4 h-4" />
             </div>
-            <h2 className="text-fluid-body font-bold text-[#111110]">
-              Date-Wise Availability Search
-            </h2>
+            <div>
+              <h2 className="text-xs sm:text-sm font-bold text-[#111110]">
+                Date-Wise Availability Search
+              </h2>
+              <span className="text-[11px] text-[#70706B] hidden sm:block">
+                Select your loan window to verify real-time calendar reservations
+              </span>
+            </div>
           </div>
 
           {/* Quick Date Presets */}
           <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pt-1 sm:pt-0">
-            <span className="text-[11px] text-[#70706B] font-medium mr-1 hidden lg:inline">Quick Dates:</span>
+            <span className="text-[11px] text-[#70706B] font-semibold mr-1 hidden lg:inline">Quick Presets:</span>
             <button
               type="button"
               onClick={() => applyDatePreset('tomorrow')}
-              className="px-2.5 py-1 rounded-lg text-[11px] font-medium border border-[#E2E2DE] hover:border-[#111110] hover:bg-[#F9F9F8] transition-all whitespace-nowrap"
+              className="px-3 py-1 rounded-full text-[11px] font-semibold border border-[#E5E5E0] hover:border-[#111110] bg-[#F8F8F6] hover:bg-white text-[#111110] transition-all whitespace-nowrap active:scale-95"
             >
               Tomorrow
             </button>
             <button
               type="button"
               onClick={() => applyDatePreset('3days')}
-              className="px-2.5 py-1 rounded-lg text-[11px] font-medium border border-[#E2E2DE] hover:border-[#111110] hover:bg-[#F9F9F8] transition-all whitespace-nowrap"
+              className="px-3 py-1 rounded-full text-[11px] font-semibold border border-[#E5E5E0] hover:border-[#111110] bg-[#F8F8F6] hover:bg-white text-[#111110] transition-all whitespace-nowrap active:scale-95"
             >
               Next 3 Days
             </button>
             <button
               type="button"
               onClick={() => applyDatePreset('weekend')}
-              className="px-2.5 py-1 rounded-lg text-[11px] font-medium border border-[#E2E2DE] hover:border-[#111110] hover:bg-[#F9F9F8] transition-all whitespace-nowrap"
+              className="px-3 py-1 rounded-full text-[11px] font-semibold border border-[#E5E5E0] hover:border-[#111110] bg-[#F8F8F6] hover:bg-white text-[#111110] transition-all whitespace-nowrap active:scale-95"
             >
               This Weekend
             </button>
             <button
               type="button"
               onClick={() => applyDatePreset('nextWeek')}
-              className="px-2.5 py-1 rounded-lg text-[11px] font-medium border border-[#E2E2DE] hover:border-[#111110] hover:bg-[#F9F9F8] transition-all whitespace-nowrap"
+              className="px-3 py-1 rounded-full text-[11px] font-semibold border border-[#E5E5E0] hover:border-[#111110] bg-[#F8F8F6] hover:bg-white text-[#111110] transition-all whitespace-nowrap active:scale-95"
             >
               Next Week
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-          <div className="sm:col-span-4 space-y-1">
+        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 sm:gap-4 items-end">
+          <div className="sm:col-span-4 space-y-1.5">
             <label className="text-[11px] font-bold uppercase tracking-wider text-[#70706B] flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5 text-[#111110]" />
               <span>Borrow From (Pickup)</span>
@@ -251,11 +254,11 @@ export default function EquipmentCataloguePage() {
                   setEndDate(e.target.value);
                 }
               }}
-              className="input-paraquet h-[42px] text-fluid-body"
+              className="input-paraquet h-[44px] text-xs font-semibold rounded-2xl"
             />
           </div>
 
-          <div className="sm:col-span-4 space-y-1">
+          <div className="sm:col-span-4 space-y-1.5">
             <label className="text-[11px] font-bold uppercase tracking-wider text-[#70706B] flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5 text-[#111110]" />
               <span>Return By (Drop-off)</span>
@@ -265,7 +268,7 @@ export default function EquipmentCataloguePage() {
               min={startDate || todayStr}
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="input-paraquet h-[42px] text-fluid-body"
+              className="input-paraquet h-[44px] text-xs font-semibold rounded-2xl"
             />
           </div>
 
@@ -274,12 +277,12 @@ export default function EquipmentCataloguePage() {
               type="button"
               onClick={() => setOnlyFreeForDates(!onlyFreeForDates)}
               disabled={!startDate || !endDate}
-              className={`flex-1 h-[42px] px-3 rounded-xl text-fluid-micro font-bold border transition-all flex items-center justify-center gap-1.5 ${
+              className={`flex-1 h-[44px] px-4 rounded-2xl text-xs font-bold border transition-all flex items-center justify-center gap-2 active:scale-95 ${
                 !startDate || !endDate
-                  ? 'opacity-50 cursor-not-allowed bg-[#F9F9F8] text-[#70706B] border-[#E2E2DE]'
+                  ? 'opacity-50 cursor-not-allowed bg-[#F9F9F8] text-[#70706B] border-[#E5E5E0]'
                   : onlyFreeForDates
                   ? 'bg-[#111110] text-white border-[#111110] shadow-xs'
-                  : 'bg-white text-[#111110] border-[#E2E2DE] hover:border-[#111110]'
+                  : 'bg-white text-[#111110] border-[#E5E5E0] hover:border-[#111110]'
               }`}
             >
               <CheckCircle2 className={`w-3.5 h-3.5 ${onlyFreeForDates ? 'text-[#4ADE80]' : 'text-[#70706B]'}`} />
@@ -290,7 +293,7 @@ export default function EquipmentCataloguePage() {
               <button
                 type="button"
                 onClick={clearDates}
-                className="h-[42px] px-3 rounded-xl border border-[#E2E2DE] hover:border-[#111110] text-fluid-micro text-[#70706B] hover:text-[#111110] font-medium transition-all"
+                className="h-[44px] px-3.5 rounded-2xl border border-[#E5E5E0] hover:border-[#111110] bg-white text-xs text-[#70706B] hover:text-[#111110] font-semibold transition-all active:scale-95"
                 title="Clear dates"
               >
                 Clear
@@ -301,15 +304,15 @@ export default function EquipmentCataloguePage() {
 
         {/* Active Date Query Summary */}
         {startDate && endDate && (
-          <div className="pt-2 border-t border-[#F0F0EE] flex flex-wrap items-center justify-between gap-2 text-[11px] animate-fade-in">
+          <div className="pt-2 border-t border-[#F0F0EE] flex flex-wrap items-center justify-between gap-2 text-xs">
             <div className="flex items-center gap-2 text-[#111110]">
               <span className="w-2 h-2 rounded-full bg-[#1B7A42] animate-pulse" />
               <span>
-                Checking availability window: <strong>{new Date(startDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</strong> to <strong>{new Date(endDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong>
+                Availability window: <strong>{new Date(startDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</strong> to <strong>{new Date(endDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</strong>
               </span>
             </div>
-            <span className="text-[#70706B]">
-              <strong>{availableCount}</strong> free • <strong>{conflictingCount}</strong> reserved during this window
+            <span className="text-[#70706B] font-medium">
+              <strong className="text-[#1B7A42]">{availableCount}</strong> free • <strong className="text-[#DC2626]">{conflictingCount}</strong> reserved during this window
             </span>
           </div>
         )}
@@ -326,23 +329,23 @@ export default function EquipmentCataloguePage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search equipment by name, keywords, or campus room..."
-              className="input-paraquet pl-10 pr-4 h-[46px]"
+              placeholder="Search equipment by name, keywords, or campus lab..."
+              className="input-paraquet pl-10 pr-4 h-[46px] rounded-2xl text-xs sm:text-sm font-medium"
             />
           </div>
 
-          {/* Quick Availability Toggle (General catalog status) */}
+          {/* Quick Availability Toggle */}
           <div className="md:col-span-3 flex items-center">
             <button
               onClick={() => setOnlyAvailable(!onlyAvailable)}
-              className={`w-full h-[46px] px-4 rounded-xl text-fluid-body font-semibold transition-all border flex items-center justify-center gap-2 ${
+              className={`w-full h-[46px] px-4 rounded-2xl text-xs sm:text-sm font-bold transition-all border flex items-center justify-center gap-2 active:scale-95 ${
                 onlyAvailable
-                  ? 'bg-[#111110] text-white border-[#111110] shadow-sm'
-                  : 'bg-white text-[#111110] border-[#E2E2DE] hover:border-[#111110]'
+                  ? 'bg-[#111110] text-white border-[#111110] shadow-xs'
+                  : 'bg-white text-[#111110] border-[#E5E5E0] hover:border-[#111110]'
               }`}
             >
               <span className={`w-2 h-2 rounded-full ${onlyAvailable ? 'bg-[#4ADE80]' : 'bg-[#1B7A42]'}`} />
-              {onlyAvailable ? 'Catalog: Available Only' : 'Filter: Available Now'}
+              <span>{onlyAvailable ? 'Showing: Available Only' : 'Filter: Ready to Borrow'}</span>
             </button>
           </div>
 
@@ -351,7 +354,7 @@ export default function EquipmentCataloguePage() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as 'newest' | 'name')}
-              className="input-paraquet h-[46px] text-fluid-body font-medium cursor-pointer"
+              className="input-paraquet h-[46px] rounded-2xl text-xs sm:text-sm font-semibold cursor-pointer"
             >
               <option value="newest">Sort: Recently Added</option>
               <option value="name">Sort: Name (A-Z)</option>
@@ -360,33 +363,35 @@ export default function EquipmentCataloguePage() {
 
         </div>
 
-        {/* Category Pills */}
+        {/* Category Pills Strip */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none pt-0.5">
           {categories.map((cat) => {
             const isSelected = selectedCategory === cat.label;
+            const Icon = cat.icon;
             return (
               <button
                 key={cat.label}
                 onClick={() => setSelectedCategory(cat.label)}
-                className={`px-3.5 py-1.5 rounded-full text-fluid-body font-medium transition-all whitespace-nowrap border ${
+                className={`px-4 py-2 rounded-full text-xs font-semibold transition-all whitespace-nowrap border flex items-center gap-1.5 active:scale-95 ${
                   isSelected
-                    ? 'bg-[#111110] text-white border-[#111110] shadow-sm font-semibold'
-                    : 'bg-white text-[#70706B] border-[#E2E2DE] hover:text-[#111110] hover:border-[#111110]'
+                    ? 'bg-[#111110] text-white border-[#111110] shadow-2xs font-bold'
+                    : 'bg-white text-[#70706B] border-[#E5E5E0] hover:text-[#111110] hover:border-[#111110]'
                 }`}
               >
-                {cat.label}
+                <Icon className="w-3.5 h-3.5" />
+                <span>{cat.label}</span>
               </button>
             );
           })}
         </div>
 
-        {/* Results Count & Clear */}
-        <div className="flex items-center justify-between text-fluid-micro text-[#70706B] pt-1">
+        {/* Results Count & Clear Action */}
+        <div className="flex items-center justify-between text-xs text-[#70706B] pt-1">
           <span>
             Showing <strong>{filtered.length}</strong> items
             {selectedCategory !== 'All' && ` in "${selectedCategory}"`}
-            {onlyAvailable && ' (Catalog Available)'}
-            {startDate && endDate && onlyFreeForDates && ' (Free for Dates Only)'}
+            {onlyAvailable && ' (Available Only)'}
+            {startDate && endDate && onlyFreeForDates && ' (Free for Dates)'}
           </span>
 
           {(search || selectedCategory !== 'All' || onlyAvailable || startDate || endDate) && (
@@ -397,9 +402,10 @@ export default function EquipmentCataloguePage() {
                 setOnlyAvailable(false);
                 clearDates();
               }}
-              className="flex items-center gap-1 text-[#111110] hover:underline font-semibold"
+              className="flex items-center gap-1.5 text-[#111110] hover:underline font-bold text-xs"
             >
-              <RotateCcw className="w-3 h-3" /> Reset All Filters
+              <RotateCcw className="w-3 h-3" /> 
+              <span>Reset All Filters</span>
             </button>
           )}
         </div>
@@ -407,12 +413,22 @@ export default function EquipmentCataloguePage() {
 
       {/* Equipment Grid */}
       {loading ? (
-        <div className="py-20 text-center space-y-3">
-          <div className="w-6 h-6 border-2 border-[#111110] border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-fluid-micro text-[#70706B]">Evaluating catalog & date schedules...</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
+          {[...Array(8)].map((_, i) => (
+            <div
+              key={i}
+              className="rounded-[28px] border border-[#E5E5E0] bg-white p-4 flex flex-col justify-between h-[280px] animate-pulse"
+            >
+              <div className="w-full aspect-[4/3] bg-[#EDEDEA] rounded-[20px]" />
+              <div className="pt-3 space-y-2">
+                <div className="w-3/4 h-4 bg-[#EDEDEA] rounded" />
+                <div className="w-1/2 h-3 bg-[#EDEDEA] rounded" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : filtered.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
           {filtered.map((item) => (
             <EquipmentCard 
               key={item.id} 
@@ -422,12 +438,14 @@ export default function EquipmentCataloguePage() {
           ))}
         </div>
       ) : (
-        <div className="text-center py-16 card-paraquet space-y-3">
-          <SlidersHorizontal className="w-8 h-8 text-[#70706B] mx-auto opacity-40" />
-          <h3 className="text-fluid-h2 font-bold text-[#111110]">
+        <div className="text-center py-16 rounded-[28px] border border-[#E5E5E0] bg-white p-8 space-y-4">
+          <div className="w-12 h-12 rounded-full bg-[#F5F5F3] border border-[#E5E5E0] flex items-center justify-center text-[#70706B] mx-auto">
+            <SlidersHorizontal className="w-5 h-5" />
+          </div>
+          <h3 className="text-lg font-bold text-[#111110]">
             No matching equipment found
           </h3>
-          <p className="text-fluid-body text-[#70706B] max-w-sm mx-auto">
+          <p className="text-xs sm:text-sm text-[#70706B] max-w-sm mx-auto">
             {startDate && endDate && onlyFreeForDates
               ? 'All equipment in this category has existing reservations during your selected dates. Try expanding your dates or clearing filters.'
               : 'Try adjusting your search keywords or switching category filters.'}
@@ -439,7 +457,7 @@ export default function EquipmentCataloguePage() {
               setOnlyAvailable(false);
               clearDates();
             }}
-            className="btn-secondary text-xs"
+            className="btn-secondary text-xs px-5 py-2.5 rounded-full"
           >
             Reset Filters
           </button>

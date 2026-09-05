@@ -1,8 +1,16 @@
 import type { Metadata } from 'next';
 import { ClerkProvider } from '@clerk/nextjs';
+import { Caveat } from 'next/font/google';
 import './globals.css';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+
+const caveat = Caveat({
+  subsets: ['latin'],
+  weight: ['600', '700'],
+  variable: '--font-caveat',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Paraquet — Campus Equipment Sharing & Lending Platform',
@@ -15,8 +23,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="flex flex-col min-h-screen bg-[#F5F5F3] text-[#111110] antialiased selection:bg-[#111110] selection:text-white">
+    <html lang="en" className={caveat.variable}>
+      <body className={`${caveat.variable} flex flex-col min-h-screen bg-[#F5F5F3] text-[#111110] antialiased selection:bg-[#111110] selection:text-white`}>
         <ClerkProvider>
           <Navbar />
           <main className="flex-grow">

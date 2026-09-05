@@ -244,14 +244,14 @@ export default function EquipmentDetailPage() {
   };
 
   return (
-    <div className="container-custom py-8 sm:py-12 space-y-6">
+    <div className="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-6">
       
       {/* Back Link */}
       <Link
         href="/equipment"
-        className="inline-flex items-center gap-1.5 text-fluid-body font-semibold text-[#70706B] hover:text-[#111110] transition-colors"
+        className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#70706B] hover:text-[#111110] transition-colors"
       >
-        <ArrowLeft className="w-4 h-4" /> Back to Catalog
+        <ArrowLeft className="w-4 h-4" /> Back to Equipment Catalog
       </Link>
 
       {/* Grid */}
@@ -261,8 +261,8 @@ export default function EquipmentDetailPage() {
         <div className="lg:col-span-7 space-y-6">
           
           {/* Main Photo Card */}
-          <div className="card-paraquet p-3 sm:p-4 space-y-3">
-            <div className="aspect-[16/10] relative rounded-2xl overflow-hidden bg-[#EDEDEA]">
+          <div className="rounded-[28px] border border-[#E5E5E0] bg-white p-4 sm:p-5 space-y-3 shadow-2xs">
+            <div className="aspect-[16/10] relative rounded-[20px] overflow-hidden bg-[#F8F8F6] border border-[#EDEDEA]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={equipment.images[activeImageIndex] || equipment.images[0]}
@@ -270,7 +270,7 @@ export default function EquipmentDetailPage() {
                 className="w-full h-full object-cover"
               />
               <div className="absolute top-3 left-3">
-                <span className="px-3 py-1 rounded-full text-fluid-micro font-semibold bg-white/90 text-[#111110] backdrop-blur-md shadow-sm">
+                <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-white/95 text-[#70706B] border border-[#E5E5E0] backdrop-blur-xs shadow-2xs">
                   {equipment.category}
                 </span>
               </div>
@@ -278,13 +278,13 @@ export default function EquipmentDetailPage() {
 
             {/* Thumbnails */}
             {equipment.images.length > 1 && (
-              <div className="flex gap-2.5 pt-1">
+              <div className="flex gap-2.5 pt-1 overflow-x-auto scrollbar-none">
                 {equipment.images.map((img, idx) => (
                   <button
                     key={idx}
                     onClick={() => setActiveImageIndex(idx)}
-                    className={`relative w-20 h-14 rounded-xl overflow-hidden border-2 transition-all ${
-                      activeImageIndex === idx ? 'border-[#111110] scale-105' : 'border-transparent opacity-60 hover:opacity-100'
+                    className={`relative w-20 h-14 rounded-xl overflow-hidden border-2 transition-all flex-shrink-0 ${
+                      activeImageIndex === idx ? 'border-[#111110] scale-105 shadow-xs' : 'border-transparent opacity-60 hover:opacity-100'
                     }`}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -296,24 +296,24 @@ export default function EquipmentDetailPage() {
           </div>
 
           {/* Description Card */}
-          <div className="card-paraquet p-6 sm:p-8 space-y-5">
-            <h2 className="text-fluid-h2 font-bold text-[#111110]">
+          <div className="rounded-[28px] border border-[#E5E5E0] bg-white p-6 sm:p-8 space-y-5 shadow-2xs">
+            <h2 className="text-lg sm:text-xl font-bold text-[#111110]">
               Equipment Overview
             </h2>
-            <p className="text-fluid-body text-[#111110]/90 leading-relaxed whitespace-pre-line">
+            <p className="text-xs sm:text-sm text-[#70706B] leading-relaxed whitespace-pre-line">
               {equipment.description}
             </p>
 
             {/* Technical Specifications */}
             {equipment.specs && Object.keys(equipment.specs).length > 0 && (
-              <div className="pt-4 border-t border-[#E2E2DE] space-y-3">
-                <h4 className="text-fluid-micro uppercase font-bold tracking-wider text-[#70706B]">
+              <div className="pt-4 border-t border-[#E5E5E0] space-y-3">
+                <h4 className="text-[11px] uppercase font-bold tracking-wider text-[#70706B]">
                   Technical Details
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   {Object.entries(equipment.specs).map(([k, v]) => (
-                    <div key={k} className="p-3 bg-[#EDEDEA] rounded-xl text-fluid-body">
-                      <span className="text-fluid-micro text-[#70706B] block">{k}</span>
+                    <div key={k} className="p-3 bg-[#F8F8F6] border border-[#E5E5E0] rounded-2xl text-xs">
+                      <span className="text-[10px] text-[#70706B] uppercase font-bold tracking-wider block">{k}</span>
                       <span className="font-semibold text-[#111110] mt-0.5 block">{v}</span>
                     </div>
                   ))}
@@ -322,17 +322,17 @@ export default function EquipmentDetailPage() {
             )}
 
             {/* Location */}
-            <div className="p-4 bg-[#EDEDEA] rounded-2xl flex items-start gap-3">
+            <div className="p-4 bg-[#F8F8F6] border border-[#E5E5E0] rounded-2xl flex items-start gap-3">
               <MapPin className="w-5 h-5 text-[#111110] flex-shrink-0 mt-0.5" />
               <div>
-                <span className="text-fluid-micro uppercase font-bold text-[#70706B] block">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-[#70706B] block">
                   Campus Handover Point
                 </span>
-                <span className="text-fluid-body font-semibold text-[#111110] block mt-0.5">
+                <span className="text-xs sm:text-sm font-bold text-[#111110] block mt-0.5">
                   {equipment.location}
                 </span>
-                <span className="text-fluid-micro text-[#70706B] block mt-1">
-                  Access during campus building hours with verified student ID.
+                <span className="text-xs text-[#70706B] block mt-1">
+                  Access during campus building hours with verified student credentials.
                 </span>
               </div>
             </div>
@@ -353,16 +353,16 @@ export default function EquipmentDetailPage() {
 
           {/* Condition History & Handover Evidence */}
           {equipmentActivity.filter(a => Boolean(a.conditionReport)).length > 0 && (
-            <div className="card-paraquet p-6 sm:p-8 space-y-4">
+            <div className="rounded-[28px] border border-[#E5E5E0] bg-white p-6 sm:p-8 space-y-4 shadow-2xs">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <Camera className="w-5 h-5 text-[#111110]" />
-                    <h3 className="text-fluid-h3 font-bold text-[#111110]">
+                    <h3 className="text-base font-bold text-[#111110]">
                       Condition History & Inspection Evidence
                     </h3>
                   </div>
-                  <p className="text-fluid-micro text-[#70706B]">
+                  <p className="text-xs text-[#70706B]">
                     Visual condition records uploaded during student pickups and returns.
                   </p>
                 </div>
@@ -383,8 +383,8 @@ export default function EquipmentDetailPage() {
                     });
 
                     return (
-                      <div key={act.id} className="p-4 bg-[#F9F9F8] border border-[#EDEDEA] rounded-2xl space-y-3">
-                        <div className="flex items-center justify-between flex-wrap gap-2 text-fluid-micro">
+                      <div key={act.id} className="p-4 bg-[#F8F8F6] border border-[#E5E5E0] rounded-2xl space-y-3">
+                        <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-[#111110]">
                               {cr.type === 'PICKUP' ? '📸 Pickup Check' : '🔄 Return Check'}
@@ -402,7 +402,7 @@ export default function EquipmentDetailPage() {
                         </div>
 
                         {cr.notes && (
-                          <p className="text-fluid-micro text-[#70706B] italic">
+                          <p className="text-xs text-[#70706B] italic">
                             "{cr.notes}"
                           </p>
                         )}
@@ -414,7 +414,7 @@ export default function EquipmentDetailPage() {
                                 key={idx}
                                 type="button"
                                 onClick={() => setSelectedPhotoPreview({ url: photo, title: `${equipment.name} (${cr.type})` })}
-                                className="relative group w-14 h-14 rounded-xl overflow-hidden border border-[#E2E2DE] hover:border-[#111110] transition-all flex-shrink-0"
+                                className="relative group w-14 h-14 rounded-xl overflow-hidden border border-[#E5E5E0] hover:border-[#111110] transition-all flex-shrink-0"
                               >
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img src={photo} alt="condition" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
@@ -433,14 +433,14 @@ export default function EquipmentDetailPage() {
           )}
 
           {/* WEB-C08: Status Change History Card */}
-          <div className="card-paraquet p-6 space-y-4">
+          <div className="rounded-[28px] border border-[#E5E5E0] bg-white p-6 sm:p-8 space-y-4 shadow-2xs">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <History className="w-4 h-4 text-[#111110]" />
-                <h3 className="text-fluid-body font-bold text-[#111110]">
+                <h3 className="text-base font-bold text-[#111110]">
                   Status Change History
                 </h3>
-                <span className="text-[10px] font-bold px-2 py-0.5 bg-[#F0F0EE] text-[#70706B] rounded-full border border-[#E2E2DE]">
+                <span className="text-[10px] font-bold px-2 py-0.5 bg-[#F5F5F3] text-[#70706B] rounded-full border border-[#E5E5E0]">
                   WEB-C08
                 </span>
               </div>
@@ -451,16 +451,11 @@ export default function EquipmentDetailPage() {
                   setStatusModalError(null);
                   setIsStatusModalOpen(true);
                 }}
-                className="btn-secondary text-fluid-micro py-1.5 px-3 inline-flex items-center gap-1.5 hover:border-[#111110]"
+                className="btn-secondary text-xs py-1.5 px-3 rounded-full"
               >
-                <Wrench className="w-3.5 h-3.5" />
-                <span>Update Status</span>
+                + Update Status
               </button>
             </div>
-
-            <p className="text-fluid-micro text-[#70706B]">
-              Audit history of availability & maintenance transitions, tracking previous status, new status, timestamp, and justification reason.
-            </p>
 
             {equipment.statusHistory && equipment.statusHistory.length > 0 ? (
               <div className="space-y-3 pt-1">
@@ -493,9 +488,9 @@ export default function EquipmentDetailPage() {
                   return (
                     <div
                       key={idx}
-                      className="p-4 bg-[#F9F9F8] border border-[#EDEDEA] rounded-2xl space-y-2.5 transition-all hover:border-[#D0D0CC]"
+                      className="p-4 bg-[#F8F8F6] border border-[#E5E5E0] rounded-2xl space-y-2.5 transition-all hover:border-[#D0D0CC]"
                     >
-                      <div className="flex items-center justify-between flex-wrap gap-2 text-fluid-micro">
+                      <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
                         <div className="flex items-center gap-2">
                           <span className="text-[11px] text-[#70706B] font-medium">Transition:</span>
                           {getStatusBadge(rec.previousValue)}
@@ -509,11 +504,11 @@ export default function EquipmentDetailPage() {
                         </div>
                       </div>
 
-                      <div className="bg-white border border-[#EAEAE6] p-3 rounded-xl shadow-2xs">
+                      <div className="bg-white border border-[#E5E5E0] p-3 rounded-xl shadow-2xs">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-[#70706B] block mb-1">
                           Justification Reason
                         </span>
-                        <p className="text-fluid-micro text-[#111110] italic">
+                        <p className="text-xs text-[#111110] italic">
                           "{rec.reason}"
                         </p>
                       </div>
@@ -527,8 +522,8 @@ export default function EquipmentDetailPage() {
                 })}
               </div>
             ) : (
-              <div className="p-4 bg-[#F9F9F8] border border-[#EDEDEA] rounded-2xl text-center space-y-1">
-                <p className="text-fluid-micro text-[#70706B]">
+              <div className="p-4 bg-[#F8F8F6] border border-[#E5E5E0] rounded-2xl text-center space-y-1">
+                <p className="text-xs text-[#70706B]">
                   No previous status transitions recorded for this equipment.
                 </p>
                 <span className="text-[11px] font-bold text-[#1B7A42]">
@@ -539,7 +534,7 @@ export default function EquipmentDetailPage() {
           </div>
 
           {/* Steward Card */}
-          <div className="card-paraquet p-5 flex flex-wrap sm:flex-nowrap items-center justify-between gap-4">
+          <div className="rounded-[28px] border border-[#E5E5E0] bg-white p-5 sm:p-6 shadow-2xs flex flex-wrap sm:flex-nowrap items-center justify-between gap-4">
             <div className="flex items-center gap-3.5 min-w-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -548,17 +543,17 @@ export default function EquipmentDetailPage() {
                 className="w-12 h-12 rounded-full object-cover flex-shrink-0"
               />
               <div className="min-w-0">
-                <span className="text-fluid-micro text-[#70706B] block">Equipment Steward</span>
-                <h4 className="text-fluid-body font-bold text-[#111110] truncate">
+                <span className="text-xs text-[#70706B] block">Equipment Steward</span>
+                <h4 className="text-sm font-bold text-[#111110] truncate">
                   {equipment.ownerName}
                 </h4>
-                <span className="text-fluid-micro text-[#1B7A42] font-semibold flex items-center gap-1 mt-0.5">
+                <span className="text-xs text-[#1B7A42] font-semibold flex items-center gap-1 mt-0.5">
                   <UserCheck className="w-3.5 h-3.5 flex-shrink-0" /> Verified Community Lender
                 </span>
               </div>
             </div>
 
-            <div className="text-left sm:text-right text-fluid-micro text-[#70706B] flex-shrink-0">
+            <div className="text-left sm:text-right text-xs text-[#70706B] flex-shrink-0">
               <span className="block font-medium">Condition</span>
               <span className="badge-pill badge-available mt-1">
                 {equipment.currentCondition}
@@ -571,12 +566,12 @@ export default function EquipmentDetailPage() {
         {/* Right Column: Reservation Request Card */}
         <div className="lg:col-span-5 space-y-6">
           
-          <div className="card-paraquet p-6 sm:p-8 sticky top-24 space-y-6">
+          <div className="rounded-[28px] border border-[#E5E5E0] bg-white p-6 sm:p-8 sticky top-24 space-y-6 shadow-xs">
             
             <div>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-fluid-micro uppercase font-bold tracking-wider text-[#70706B]">
-                  Loan Request
+                <span className="text-[11px] uppercase font-bold tracking-wider text-[#70706B]">
+                  Campus Loan Request
                 </span>
                 {isOverdue ? (
                   <span className="badge-pill badge-rejected font-bold">● Overdue Loan</span>
@@ -589,13 +584,16 @@ export default function EquipmentDetailPage() {
                 )}
               </div>
 
-              <h1 className="text-fluid-h2 font-bold text-[#111110] leading-tight">
+              <h1 className="text-xl sm:text-2xl font-extrabold text-[#111110] tracking-tight">
                 {equipment.name}
               </h1>
-              <p className="text-fluid-micro text-[#70706B] mt-1.5 flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5 text-[#111110]" />
-                Max recommended loan: {equipment.maxBorrowDays || 3} days
-              </p>
+              <div className="flex items-center justify-between text-xs text-[#70706B] mt-2 pt-2 border-t border-[#F0F0EE]">
+                <span className="font-semibold text-[#111110]">$0 Free Student Loan</span>
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5 text-[#111110]" />
+                  Max: {equipment.maxBorrowDays || 3} days
+                </span>
+              </div>
             </div>
 
             {/* Active / Approved / Overdue Custody Details */}
@@ -636,7 +634,7 @@ export default function EquipmentDetailPage() {
                 
                 {/* Dates */}
                 <div className="space-y-1.5">
-                  <label className="block text-fluid-micro uppercase font-bold tracking-wider text-[#70706B]">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
                     Pickup Date & Time
                   </label>
                   <div className="grid grid-cols-2 gap-2">
@@ -644,21 +642,21 @@ export default function EquipmentDetailPage() {
                       type="date"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="input-paraquet input-date-time text-xs sm:text-sm"
+                      className="input-paraquet input-date-time text-xs sm:text-sm rounded-2xl h-[44px] font-semibold"
                       required
                     />
                     <input
                       type="time"
                       value={startTime}
                       onChange={(e) => setStartTime(e.target.value)}
-                      className="input-paraquet input-date-time text-xs sm:text-sm"
+                      className="input-paraquet input-date-time text-xs sm:text-sm rounded-2xl h-[44px] font-semibold"
                       required
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-fluid-micro uppercase font-bold tracking-wider text-[#70706B]">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
                     Return Date & Time
                   </label>
                   <div className="grid grid-cols-2 gap-2">
@@ -666,14 +664,14 @@ export default function EquipmentDetailPage() {
                       type="date"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      className="input-paraquet input-date-time text-xs sm:text-sm"
+                      className="input-paraquet input-date-time text-xs sm:text-sm rounded-2xl h-[44px] font-semibold"
                       required
                     />
                     <input
                       type="time"
                       value={endTime}
                       onChange={(e) => setEndTime(e.target.value)}
-                      className="input-paraquet input-date-time text-xs sm:text-sm"
+                      className="input-paraquet input-date-time text-xs sm:text-sm rounded-2xl h-[44px] font-semibold"
                       required
                     />
                   </div>
@@ -681,11 +679,11 @@ export default function EquipmentDetailPage() {
 
                 {/* Pending Request Date Collision Warning */}
                 {pendingCollision && !approvedCollision && (
-                  <div className="p-3 bg-[#FEF9C3] border border-[#FDE047] rounded-xl text-fluid-micro text-[#854D0E] flex items-start gap-2">
+                  <div className="p-3.5 bg-[#FEF9C3] border border-[#FDE047] rounded-2xl text-xs text-[#854D0E] flex items-start gap-2.5">
                     <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5 text-[#CA8A04]" />
                     <div className="space-y-0.5">
                       <span className="font-bold block">Pending Request Conflict Warning</span>
-                      <p className="leading-relaxed">
+                      <p className="leading-relaxed text-[11px]">
                         Another student has submitted a pending reservation for overlapping dates ({new Date(pendingCollision.startDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – {new Date(pendingCollision.endDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}). If approved, your request may collide.
                       </p>
                     </div>
@@ -694,11 +692,11 @@ export default function EquipmentDetailPage() {
 
                 {/* Approved / Active Booking Collision Alert */}
                 {approvedCollision && (
-                  <div className="p-3 bg-[#FEE2E2] border border-[#FCA5A5] rounded-xl text-fluid-micro text-[#991B1B] flex items-start gap-2">
+                  <div className="p-3.5 bg-[#FEE2E2] border border-[#FCA5A5] rounded-2xl text-xs text-[#991B1B] flex items-start gap-2.5">
                     <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-[#DC2626]" />
                     <div className="space-y-0.5">
                       <span className="font-bold block">Date Range Unavailable</span>
-                      <p className="leading-relaxed">
+                      <p className="leading-relaxed text-[11px]">
                         This gear is already {approvedCollision.status === 'ACTIVE' ? 'checked out by' : 'approved for'} <strong>{approvedCollision.borrowerName}</strong> from {new Date(approvedCollision.startDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} to {new Date(approvedCollision.endDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}. Please select different dates.
                       </p>
                     </div>
@@ -707,21 +705,21 @@ export default function EquipmentDetailPage() {
 
                 {/* Purpose */}
                 <div className="space-y-1.5">
-                  <label className="block text-fluid-micro uppercase font-bold tracking-wider text-[#70706B]">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
                     Academic / Project Purpose
                   </label>
                   <textarea
                     rows={3}
                     value={purpose}
                     onChange={(e) => setPurpose(e.target.value)}
-                    placeholder="Briefly describe what you're building or filming..."
-                    className="input-paraquet text-fluid-body resize-none"
+                    placeholder="Briefly describe your student project, film shoot, or lab experiment..."
+                    className="input-paraquet rounded-2xl text-xs sm:text-sm resize-none"
                     required
                   />
                 </div>
 
                 {bookingError && (
-                  <div className="p-3 bg-[#FEE2E2] rounded-xl text-fluid-micro text-[#DC2626] flex items-center gap-2">
+                  <div className="p-3 bg-[#FEE2E2] border border-[#FECACA] rounded-2xl text-xs text-[#DC2626] flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 flex-shrink-0" />
                     <span>{bookingError}</span>
                   </div>
@@ -730,10 +728,10 @@ export default function EquipmentDetailPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting || !isAvailable}
-                  className={`w-full py-3 ${
+                  className={`w-full py-3.5 rounded-full text-xs sm:text-sm font-bold transition-all shadow-xs active:scale-98 ${
                     isAvailable
                       ? 'btn-primary'
-                      : 'inline-flex items-center justify-center bg-[#E2E2DE] text-[#9C9C96] cursor-not-allowed rounded-full font-semibold text-fluid-body'
+                      : 'inline-flex items-center justify-center bg-[#EDEDEA] text-[#9C9C96] border border-[#E5E5E0] cursor-not-allowed'
                   }`}
                 >
                   {isSubmitting 
@@ -743,12 +741,12 @@ export default function EquipmentDetailPage() {
                       : approvedCollision 
                         ? 'Selected Dates Unavailable' 
                         : isAvailable 
-                          ? 'Submit Reservation Request →' 
+                          ? 'Submit Reservation Request ↗' 
                           : 'Unavailable for Booking'}
                 </button>
 
-                <p className="text-center text-fluid-micro text-[#70706B] pt-1">
-                  Pickup photo condition report required upon handover.
+                <p className="text-center text-[11px] text-[#70706B] pt-1">
+                  Verified university credentials required upon equipment handover.
                 </p>
 
               </form>
@@ -803,17 +801,17 @@ export default function EquipmentDetailPage() {
       {/* WEB-C08: Status Change Modal */}
       {isStatusModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white border border-[#EDEDEA] rounded-3xl p-6 sm:p-8 max-w-lg w-full space-y-5 shadow-2xl animate-scale-in">
+          <div className="bg-white border border-[#E5E5E0] rounded-[32px] p-6 sm:p-8 max-w-lg w-full space-y-5 shadow-2xl animate-scale-in">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="p-2.5 bg-[#F0F0EE] rounded-xl text-[#111110]">
-                  <Wrench className="w-5 h-5" />
+                <div className="w-9 h-9 rounded-xl bg-[#F5F5F3] border border-[#E5E5E0] flex items-center justify-center text-[#111110]">
+                  <Wrench className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-fluid-body font-bold text-[#111110]">
+                  <h3 className="text-sm sm:text-base font-bold text-[#111110]">
                     Update Equipment Status
                   </h3>
-                  <p className="text-fluid-micro text-[#70706B]">
+                  <p className="text-xs text-[#70706B]">
                     Record status transition & audit justification (WEB-C08)
                   </p>
                 </div>
@@ -821,14 +819,14 @@ export default function EquipmentDetailPage() {
               <button
                 type="button"
                 onClick={() => setIsStatusModalOpen(false)}
-                className="text-[#70706B] hover:text-[#111110] p-1.5 rounded-full hover:bg-[#F0F0EE] transition-colors"
+                className="text-[#70706B] hover:text-[#111110] p-1.5 rounded-full hover:bg-[#F5F5F3] transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {statusModalError && (
-              <div className="p-3 bg-[#FEE2E2] border border-[#FCA5A5] rounded-xl text-fluid-micro text-[#991B1B] flex items-center gap-2">
+              <div className="p-3 bg-[#FEE2E2] border border-[#FCA5A5] rounded-2xl text-xs text-[#991B1B] flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 <span>{statusModalError}</span>
               </div>
@@ -836,7 +834,7 @@ export default function EquipmentDetailPage() {
 
             <form onSubmit={handleStatusChangeSubmit} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-fluid-micro font-bold text-[#111110] block">
+                <label className="text-xs font-bold text-[#111110] block">
                   New Status
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -845,10 +843,10 @@ export default function EquipmentDetailPage() {
                       key={st}
                       type="button"
                       onClick={() => setNewStatusSelection(st)}
-                      className={`py-2 px-3 rounded-xl border text-fluid-micro font-bold capitalize transition-all ${
+                      className={`py-2 px-3 rounded-xl border text-xs font-bold capitalize transition-all active:scale-95 ${
                         newStatusSelection === st
-                          ? 'border-[#111110] bg-[#111110] text-white shadow-sm'
-                          : 'border-[#E2E2DE] bg-[#F9F9F8] text-[#70706B] hover:border-[#111110] hover:text-[#111110]'
+                          ? 'border-[#111110] bg-[#111110] text-white shadow-xs'
+                          : 'border-[#E5E5E0] bg-[#F8F8F6] text-[#70706B] hover:border-[#111110] hover:text-[#111110]'
                       }`}
                     >
                       {st}
@@ -858,15 +856,15 @@ export default function EquipmentDetailPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-fluid-micro font-bold text-[#111110] block">
-                  Justification / Reason <span className="text-[#991B1B]">*</span>
+                <label className="text-xs font-bold text-[#111110] block">
+                  Justification / Reason <span className="text-[#DC2626]">*</span>
                 </label>
                 <textarea
                   rows={3}
                   value={statusChangeReason}
                   onChange={(e) => setStatusChangeReason(e.target.value)}
                   placeholder="e.g., Scheduled bi-weekly sensor dust cleaning and optical calibration..."
-                  className="input-paraquet text-fluid-micro"
+                  className="input-paraquet rounded-2xl text-xs sm:text-sm resize-none"
                   required
                 />
                 <span className="text-[10px] text-[#70706B] block">
@@ -878,14 +876,14 @@ export default function EquipmentDetailPage() {
                 <button
                   type="button"
                   onClick={() => setIsStatusModalOpen(false)}
-                  className="btn-secondary text-fluid-micro py-2 px-4"
+                  className="btn-secondary text-xs py-2 px-4 rounded-full"
                   disabled={isSubmittingStatus}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="btn-primary text-fluid-micro py-2 px-5"
+                  className="btn-primary text-xs py-2 px-5 rounded-full"
                   disabled={isSubmittingStatus}
                 >
                   {isSubmittingStatus ? 'Saving Transition...' : 'Log & Update Status'}

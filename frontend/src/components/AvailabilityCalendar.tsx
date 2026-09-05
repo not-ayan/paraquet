@@ -5,11 +5,7 @@ import {
   ChevronLeft, 
   ChevronRight, 
   Calendar as CalendarIcon,
-  Info,
-  Clock,
-  UserCheck,
-  AlertCircle,
-  CheckCircle2
+  Clock
 } from 'lucide-react';
 import { Booking } from '@/lib/types';
 
@@ -50,7 +46,6 @@ export default function AvailabilityCalendar({
     return `${y}-${m}-${d}`;
   }, [today]);
 
-  // Initial display month: based on selectedStartDate or today
   const [viewDate, setViewDate] = useState(() => {
     if (selectedStartDate) {
       const parts = selectedStartDate.split('-').map(Number);
@@ -63,7 +58,6 @@ export default function AvailabilityCalendar({
 
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
-
   const monthName = viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   const prevMonth = () => {
@@ -82,13 +76,11 @@ export default function AvailabilityCalendar({
 
     const days: DayInfo[] = [];
 
-    // Helper: evaluate day status
     const evaluateStatus = (dateStr: string): { status: DayStatus; booking?: Booking } => {
       if (dateStr < todayStr) {
         return { status: 'PAST' };
       }
 
-      // Check matching bookings
       for (const b of bookings) {
         const bStart = b.startDateTime.slice(0, 10);
         const bEnd = b.endDateTime.slice(0, 10);
@@ -104,7 +96,7 @@ export default function AvailabilityCalendar({
       return { status: 'AVAILABLE' };
     };
 
-    // 1. Previous Month Padding Days
+    // 1. Previous Month Padding
     for (let i = firstDayIndex - 1; i >= 0; i--) {
       const dNum = daysInPrevMonth - i;
       const prevD = new Date(year, month - 1, dNum);
@@ -147,7 +139,7 @@ export default function AvailabilityCalendar({
       });
     }
 
-    // 3. Next Month Padding Days to fill grid
+    // 3. Next Month Padding
     const totalSlots = Math.ceil(days.length / 7) * 7;
     const remaining = totalSlots - days.length;
     for (let day = 1; day <= remaining; day++) {
@@ -186,7 +178,6 @@ export default function AvailabilityCalendar({
 
     const [y, m, d] = day.dateStr.split('-').map(Number);
 
-    // If starting fresh or clicking before current start date or range already set
     if (!selectedStartDate || (selectedStartDate && selectedEndDate && selectedStartDate !== selectedEndDate)) {
       const dt = new Date(y, m - 1, d);
       dt.setDate(dt.getDate() + Math.min(2, maxBorrowDays));
@@ -212,7 +203,6 @@ export default function AvailabilityCalendar({
     }
   };
 
-  // Active or upcoming bookings list for quick reference
   const relevantBookings = useMemo(() => {
     return bookings
       .filter(b => b.status !== 'CANCELLED' && b.status !== 'REJECTED')
@@ -220,49 +210,51 @@ export default function AvailabilityCalendar({
   }, [bookings]);
 
   return (
-    <div className="card-paraquet p-6 sm:p-8 space-y-6">
+    <div className="rounded-[28px] border border-[#E5E5E0] bg-white p-5 sm:p-7 space-y-6 shadow-2xs">
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <CalendarIcon className="w-5 h-5 text-[#111110]" />
-            <h3 className="text-fluid-h3 font-bold text-[#111110]">
+            <div className="w-8 h-8 rounded-xl bg-[#F5F5F3] border border-[#E5E5E0] flex items-center justify-center text-[#111110]">
+              <CalendarIcon className="w-4 h-4" />
+            </div>
+            <h3 className="text-sm sm:text-base font-bold text-[#111110]">
               Equipment Availability & Schedule
             </h3>
           </div>
-          <p className="text-fluid-micro text-[#70706B]">
-            Interactive loan calendar. Click any available day to pick your booking window.
+          <p className="text-xs text-[#70706B]">
+            Interactive loan calendar. Click any free day to pre-populate your reservation window.
           </p>
         </div>
 
         {/* Month Navigation Controls */}
-        <div className="flex items-center gap-2 self-start sm:self-auto bg-[#EDEDEA] p-1 rounded-full">
+        <div className="flex items-center gap-2 self-start sm:self-auto bg-[#F5F5F3] border border-[#E5E5E0] p-1 rounded-full">
           <button
             onClick={prevMonth}
-            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white transition-all text-[#111110]"
+            className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-white transition-all text-[#111110] active:scale-95"
             title="Previous Month"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-3.5 h-3.5" />
           </button>
-          <span className="text-fluid-micro font-bold text-[#111110] px-3 min-w-[130px] text-center">
+          <span className="text-xs font-bold text-[#111110] px-3 min-w-[130px] text-center">
             {monthName}
           </span>
           <button
             onClick={nextMonth}
-            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white transition-all text-[#111110]"
+            className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-white transition-all text-[#111110] active:scale-95"
             title="Next Month"
           >
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
       {/* Calendar Grid */}
-      <div className="border border-[#E2E2DE] rounded-2xl overflow-hidden bg-white">
+      <div className="border border-[#E5E5E0] rounded-[20px] overflow-hidden bg-white shadow-2xs">
         
         {/* Day of Week Headers */}
-        <div className="grid grid-cols-7 bg-[#F5F5F3] border-b border-[#E2E2DE] text-center text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#70706B] py-2.5">
+        <div className="grid grid-cols-7 bg-[#F8F8F6] border-b border-[#E5E5E0] text-center text-[10px] sm:text-xs font-bold uppercase tracking-wider text-[#70706B] py-2.5">
           <span>Sun</span>
           <span>Mon</span>
           <span>Tue</span>
@@ -277,12 +269,11 @@ export default function AvailabilityCalendar({
           {calendarDays.map((day, idx) => {
             const isClickable = day.status !== 'PAST';
 
-            // Styling based on status & selection
-            let bgClass = 'bg-white hover:bg-[#F5F5F3] text-[#111110]';
+            let bgClass = 'bg-white hover:bg-[#F8F8F6] text-[#111110]';
             let dotColor = '';
 
             if (day.status === 'PAST') {
-              bgClass = 'bg-[#F9F9F8] text-[#B0B0A8] cursor-not-allowed';
+              bgClass = 'bg-[#FAFAF9] text-[#A8A8A2] cursor-not-allowed';
             } else if (day.status === 'OVERDUE') {
               bgClass = 'bg-[#FEE2E2] text-[#991B1B] font-bold';
               dotColor = 'bg-[#DC2626]';
@@ -295,7 +286,7 @@ export default function AvailabilityCalendar({
             }
 
             if (day.isSelected) {
-              bgClass = 'bg-[#111110] text-white font-bold hover:bg-[#2A2A28] shadow-sm';
+              bgClass = 'bg-[#111110] text-white font-bold hover:bg-[#2A2A28] shadow-xs';
               dotColor = 'bg-white';
             }
 
@@ -305,49 +296,49 @@ export default function AvailabilityCalendar({
                 type="button"
                 onClick={() => isClickable && handleDayClick(day)}
                 disabled={!isClickable}
-                className={`min-h-[52px] sm:min-h-[64px] p-2 border-r border-b border-[#E2E2DE] flex flex-col justify-between items-start transition-all relative group text-left ${bgClass} ${
-                  !day.isCurrentMonth && day.status !== 'PAST' ? 'opacity-50' : ''
+                className={`min-h-[48px] sm:min-h-[62px] p-1.5 sm:p-2 border-r border-b border-[#E5E5E0] flex flex-col justify-between items-start transition-all relative group text-left ${bgClass} ${
+                  !day.isCurrentMonth && day.status !== 'PAST' ? 'opacity-40' : ''
                 }`}
                 title={
                   day.status === 'OVERDUE'
-                    ? `Overdue Loan (with ${day.matchingBooking?.borrowerName || 'Borrower'})`
+                    ? `Overdue Loan (${day.matchingBooking?.borrowerName || 'Borrower'})`
                     : day.status === 'BOOKED'
                     ? `Reserved by ${day.matchingBooking?.borrowerName || 'Borrower'}`
                     : day.status === 'PENDING'
-                    ? 'Pending loan request under steward review'
+                    ? 'Pending loan request'
                     : day.status === 'PAST'
                     ? 'Past date'
                     : 'Available for reservation'
                 }
               >
                 <div className="w-full flex items-center justify-between">
-                  <span className={`text-xs sm:text-sm ${day.isToday ? 'w-6 h-6 rounded-full bg-[#1B7A42] text-white flex items-center justify-center font-bold' : ''}`}>
+                  <span className={`text-[11px] sm:text-xs font-semibold ${day.isToday ? 'w-5 h-5 rounded-full bg-[#1B7A42] text-white flex items-center justify-center font-bold text-[10px]' : ''}`}>
                     {day.dayNum}
                   </span>
                   
                   {dotColor && (
-                    <span className={`w-2 h-2 rounded-full ${dotColor} flex-shrink-0`} />
+                    <span className={`w-1.5 h-1.5 rounded-full ${dotColor} flex-shrink-0`} />
                   )}
                 </div>
 
-                <div className="w-full mt-1">
+                <div className="w-full mt-0.5">
                   {day.status === 'OVERDUE' && (
-                    <span className="text-[10px] sm:text-[11px] block truncate font-bold text-[#DC2626]">
+                    <span className="text-[9px] sm:text-[10px] block truncate font-bold text-[#DC2626]">
                       Overdue
                     </span>
                   )}
                   {day.status === 'BOOKED' && !day.isSelected && (
-                    <span className="text-[10px] sm:text-[11px] block truncate text-[#2563EB]">
+                    <span className="text-[9px] sm:text-[10px] block truncate text-[#2563EB]">
                       Booked
                     </span>
                   )}
                   {day.status === 'PENDING' && !day.isSelected && (
-                    <span className="text-[10px] sm:text-[11px] block truncate text-[#A16207]">
+                    <span className="text-[9px] sm:text-[10px] block truncate text-[#A16207]">
                       Pending
                     </span>
                   )}
                   {day.isSelected && (
-                    <span className="text-[10px] sm:text-[11px] block truncate text-white/90">
+                    <span className="text-[9px] sm:text-[10px] block truncate text-white/90 font-bold">
                       {day.isRangeStart ? 'Pickup' : day.isRangeEnd ? 'Return' : 'Loan'}
                     </span>
                   )}
@@ -360,44 +351,44 @@ export default function AvailabilityCalendar({
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-[#E2E2DE] text-fluid-micro">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-1.5 text-[#40403C]">
-            <span className="w-3 h-3 rounded-full bg-white border border-[#C8C8C4]" />
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-[#E5E5E0] text-xs">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-1.5 text-[#70706B]">
+            <span className="w-2.5 h-2.5 rounded-full bg-white border border-[#C8C8C4]" />
             <span>Available</span>
           </div>
 
           <div className="flex items-center gap-1.5 text-[#854D0E]">
-            <span className="w-3 h-3 rounded-full bg-[#CA8A04]" />
-            <span>Pending Review</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-[#CA8A04]" />
+            <span>Pending</span>
           </div>
 
           <div className="flex items-center gap-1.5 text-[#1E40AF]">
-            <span className="w-3 h-3 rounded-full bg-[#2563EB]" />
-            <span>Reserved / In Use</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-[#2563EB]" />
+            <span>Reserved</span>
           </div>
 
           <div className="flex items-center gap-1.5 text-[#991B1B]">
-            <span className="w-3 h-3 rounded-full bg-[#DC2626]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#DC2626]" />
             <span>Overdue</span>
           </div>
 
-          <div className="flex items-center gap-1.5 text-[#111110] font-semibold">
-            <span className="w-3 h-3 rounded-full bg-[#111110]" />
-            <span>Your Selected Range</span>
+          <div className="flex items-center gap-1.5 text-[#111110] font-bold">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#111110]" />
+            <span>Selected Window</span>
           </div>
         </div>
 
-        <span className="text-[#70706B] text-[11px]">
-          Maximum loan duration: {maxBorrowDays} days
+        <span className="text-[#70706B] text-[11px] font-medium">
+          Max loan duration: {maxBorrowDays} days
         </span>
       </div>
 
-      {/* Booking Timeline / Schedule Details */}
+      {/* Booking Schedule Details */}
       {relevantBookings.length > 0 && (
         <div className="space-y-3 pt-2">
-          <h4 className="text-fluid-micro uppercase font-bold tracking-wider text-[#70706B] flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5" />
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#70706B] flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 text-[#111110]" />
             <span>Upcoming Custody Schedule ({relevantBookings.length})</span>
           </h4>
 
@@ -411,12 +402,12 @@ export default function AvailabilityCalendar({
               return (
                 <div 
                   key={b.id}
-                  className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-fluid-micro ${
+                  className={`p-3 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs ${
                     isDue 
-                      ? 'bg-[#FEE2E2]/60 border-[#FCA5A5] text-[#991B1B]'
+                      ? 'bg-[#FEE2E2]/70 border-[#FCA5A5] text-[#991B1B]'
                       : b.status === 'ACTIVE' || b.status === 'APPROVED'
-                      ? 'bg-[#EBF5FF]/60 border-[#BFDBFE] text-[#1E40AF]'
-                      : 'bg-[#FEF9C3]/60 border-[#FDE047] text-[#854D0E]'
+                      ? 'bg-[#EFF6FF]/70 border-[#BFDBFE] text-[#1E40AF]'
+                      : 'bg-[#FEF9C3]/70 border-[#FDE047] text-[#854D0E]'
                   }`}
                 >
                   <div className="space-y-0.5 min-w-0">
@@ -425,7 +416,7 @@ export default function AvailabilityCalendar({
                         {isDue ? '⚠️ Overdue' : b.status === 'ACTIVE' ? '● On Loan' : b.status === 'APPROVED' ? '✓ Approved' : '⏳ Pending Review'}
                       </span>
                       <span>•</span>
-                      <span className="font-medium text-[#111110]">{dateText}</span>
+                      <span className="font-semibold text-[#111110]">{dateText}</span>
                     </div>
                     <p className="truncate text-[11px] opacity-80">
                       {b.status === 'PENDING' ? 'Requested by a campus student' : `Borrower: ${b.borrowerName}`}
@@ -433,7 +424,7 @@ export default function AvailabilityCalendar({
                     </p>
                   </div>
 
-                  <span className="text-[11px] font-mono text-[#70706B] flex-shrink-0">
+                  <span className="text-[10px] font-mono text-[#70706B] flex-shrink-0">
                     Ref: {b.id.slice(-8)}
                   </span>
                 </div>

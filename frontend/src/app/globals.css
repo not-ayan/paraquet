@@ -14,7 +14,7 @@
   --surface: #FFFFFF;
   --surface-muted: #EBEBE8;
   --surface-card: #EDEDEA;
-  --border: #E2E2DE;
+  --border: #E5E5E0;
   --border-focus: #111110;
   --text-primary: #111110;
   --text-secondary: #70706B;
@@ -46,24 +46,27 @@
   --shadow-hover: 0 12px 30px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.03);
 }
 
-* {
-  box-sizing: border-box;
-}
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
 
-html, body {
-  background-color: var(--background);
-  color: var(--text-primary);
-  font-family: var(--font-aspekta);
-  font-size: 15px;
-  line-height: 1.45;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  min-height: 100vh;
-}
+  html, body {
+    background-color: var(--background);
+    color: var(--text-primary);
+    font-family: var(--font-aspekta);
+    font-size: 15px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
 
-a {
-  color: inherit;
-  text-decoration: none;
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
 }
 
 /* Fluid Typography Utilities */
@@ -116,7 +119,7 @@ a {
 .card-paraquet {
   background-color: var(--surface);
   border: 1px solid var(--border);
-  border-radius: clamp(18px, 2vw, 24px);
+  border-radius: clamp(20px, 2.5vw, 28px);
   box-shadow: var(--shadow-card);
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
 }
@@ -130,7 +133,7 @@ a {
 /* Minimalist Inset Card */
 .card-inset {
   background-color: var(--surface-card);
-  border-radius: clamp(14px, 1.5vw, 18px);
+  border-radius: clamp(16px, 2vw, 20px);
 }
 
 /* Studio Button System */
@@ -140,7 +143,7 @@ a {
   justify-content: center;
   gap: 8px;
   background-color: #111110;
-  color: #FFFFFF;
+  color: #FFFFFF !important;
   padding: 10px 20px;
   border-radius: 9999px;
   font-family: var(--font-aspekta);
@@ -153,9 +156,21 @@ a {
   white-space: nowrap;
 }
 
+.btn-primary,
+.btn-primary *,
+.btn-primary svg {
+  color: #FFFFFF !important;
+}
+
 .btn-primary:hover {
   background-color: #262624;
   transform: translateY(-1px);
+}
+
+.btn-primary:active,
+.btn-secondary:active,
+.btn-tactile:active {
+  transform: scale(0.98);
 }
 
 .btn-secondary {
@@ -164,7 +179,7 @@ a {
   justify-content: center;
   gap: 8px;
   background-color: var(--surface);
-  color: var(--text-primary);
+  color: var(--text-primary) !important;
   padding: 10px 20px;
   border-radius: 9999px;
   border: 1px solid var(--border);
@@ -175,6 +190,12 @@ a {
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
+}
+
+.btn-secondary,
+.btn-secondary *,
+.btn-secondary svg {
+  color: var(--text-primary) !important;
 }
 
 .btn-secondary:hover {
@@ -260,3 +281,19 @@ a {
   background: #D4D4CE;
   border-radius: 999px;
 }
+
+.font-handwriting {
+  font-family: var(--font-caveat), 'Caveat', cursive, sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+

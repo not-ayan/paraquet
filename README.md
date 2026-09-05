@@ -28,8 +28,8 @@ The platform is architected as a decoupled web application:
 | **Equipment Catalogue** | `Completed` | Backend REST API with MongoDB data persistence and category filtering |
 | **Availability Search** | `Completed` | Date-range selector bar with quick presets, live overlapping booking conflict evaluation, and "hide booked gear" toggle |
 | **Booking Request** | `Completed` | End-to-end reservation request submission flow with borrower attribution |
-| **Conflict Detection** | `In Review` | Mostly completed; awaiting admin portal completion for verification |
-| **Approval / Rejection** | `Blocked` | Backend endpoints ready; waiting for admin interface |
+| **Conflict Detection** | `Completed` | Verified using admin and user portal |
+| **Approval / Rejection** | `Completed` | Backend endpoints ready and verified |
 | **Issue & Return Records** | `Completed` | Custody transitions and activity audit logging active |
 | **Condition History** | `In Validation` | Embedded condition reports with photo galleries and AI similarity flags |
 | **Overdue Tracking** | `In Validation` | Implementation completed; pending test verification |
