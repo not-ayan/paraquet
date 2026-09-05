@@ -3,21 +3,25 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { apiFetch } from '../../../lib/api';
-import { IconAlertTriangle, IconCheckCircle, IconPackage, IconMapPin } from '../../icons';
+import { IconAlertTriangle, IconCheckCircle, IconPackage, IconMapPin, IconRefresh } from '../../icons';
 
 export default function PendingBookingsPage() {
   const { getToken } = useAuth();
   const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const token = await getToken();
       const data = await apiFetch('/api/admin/bookings/pending', { token });
       setBookings(data);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   }, [getToken]);
 
@@ -40,14 +44,26 @@ export default function PendingBookingsPage() {
 
   return (
     <div className="container">
-      <div className="page-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span className="badge pending">Queue: {bookings.length}</span>
+      <div className="page-header" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span className="brand-tag">Tezpur University · Reservations Queue</span>
+            <span className={`badge ${bookings.length > 0 ? 'pending' : 'active'}`}>
+              {bookings.length} {bookings.length === 1 ? 'Request' : 'Requests'} Waiting
+            </span>
+          </div>
+          <h1 className="page-title">Pending Booking Requests</h1>
+          <p className="page-desc">
+            Review equipment reservations waiting for administrative approval before gear can be checked out on campus.
+          </p>
         </div>
-        <h1 className="page-title">Pending Booking Requests</h1>
-        <p className="page-desc">
-          Review reservations waiting for approval before equipment can be picked up.
-        </p>
+
+        <div className="dash-header-actions">
+          <button type="button" className="btn secondary" onClick={load} disabled={loading}>
+            <IconRefresh />
+            {loading ? 'Refreshing…' : 'Refresh Queue'}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -57,11 +73,11 @@ export default function PendingBookingsPage() {
         </div>
       )}
 
-      {bookings.length === 0 && !error && (
+      {bookings.length === 0 && !error && !loading && (
         <div className="empty-state">
-          <div className="empty-icon"><IconCheckCircle /></div>
-          <div className="empty-title">All caught up!</div>
-          <div className="empty-text">There are no pending booking requests waiting for approval.</div>
+          <div className="empty-icon"><IconCheckCircle style={{ color: 'var(--color-success)' }} /></div>
+          <div className="empty-title">All booking queues clear!</div>
+          <div className="empty-text">There are currently no reservations waiting for administrative approval.</div>
         </div>
       )}
 
@@ -81,7 +97,7 @@ export default function PendingBookingsPage() {
               {bookings.map((b) => (
                 <tr key={b._id}>
                   <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       {b.equipment?.images?.[0] ? (
                         <img
                           src={b.equipment.images[0]}
@@ -104,7 +120,7 @@ export default function PendingBookingsPage() {
                       <div style={{ fontWeight: 600 }}>{b.user?.name || 'Borrower'}</div>
                       <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{b.user?.email}</div>
                       {b.purpose && (
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontStyle: 'italic', marginTop: 2 }}>
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', fontStyle: 'italic', marginTop: 2 }}>
                           &ldquo;{b.purpose}&rdquo;
                         </div>
                       )}
@@ -115,13 +131,13 @@ export default function PendingBookingsPage() {
                       <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>
                         {new Date(b.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – {new Date(b.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                       </span>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
                         Requested {new Date(b.createdAt).toLocaleDateString()}
                       </span>
                     </div>
                   </td>
                   <td>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--text-secondary)' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--text-secondary)', fontSize: '0.84rem' }}>
                       <IconMapPin /> {b.location || 'Tezpur University, Assam'}
                     </span>
                   </td>
@@ -132,14 +148,14 @@ export default function PendingBookingsPage() {
                         disabled={busyId === b._id}
                         onClick={() => act(b._id, 'approve')}
                       >
-                        {busyId === b._id ? 'Processing...' : 'Approve'}
+                        {busyId === b._id ? 'Processing…' : 'Approve'}
                       </button>
                       <button
                         className="btn reject"
                         disabled={busyId === b._id}
                         onClick={() => act(b._id, 'reject')}
                       >
-                        {busyId === b._id ? '...' : 'Reject'}
+                        {busyId === b._id ? '…' : 'Reject'}
                       </button>
                     </div>
                   </td>

@@ -34,14 +34,6 @@ const EVENT_TYPE_ICONS = {
   equipment_status_changed: IconRefresh,
 };
 
-const CATEGORY_PALETTE = ['#7c6cf0', '#14b8a6', '#f43f5e', '#3b82f6', '#f59e0b', '#6366f1'];
-
-function colorFor(seed, index) {
-  if (typeof index === 'number') return CATEGORY_PALETTE[index % CATEGORY_PALETTE.length];
-  const hash = [...String(seed || '')].reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
-  return CATEGORY_PALETTE[hash % CATEGORY_PALETTE.length];
-}
-
 export default function AdminHome() {
   const { getToken } = useAuth();
   const [equipment, setEquipment] = useState([]);
@@ -66,7 +58,7 @@ export default function AdminHome() {
         apiFetch('/api/admin/bookings/pending', { token }),
         apiFetch('/api/admin/bookings/flagged', { token }),
         apiFetch('/api/admin/users', { token }),
-        apiFetch('/api/admin/activity?limit=6', { token }),
+        apiFetch('/api/admin/activity?limit=7', { token }),
       ]);
       const [eq, pendEq, pendBk, flag, usr, act] = results;
       setEquipment(eq.status === 'fulfilled' ? eq.value : []);
@@ -103,129 +95,241 @@ export default function AdminHome() {
   }
 
   const sections = [
-    { href: '/equipment/pending', Icon: IconPackage, label: 'Pending Equipment', count: pendingEquipment.length, unit: 'pending' },
-    { href: '/bookings/pending', Icon: IconCalendar, label: 'Pending Bookings', count: pendingBookings.length, unit: 'pending' },
-    { href: '/bookings/flagged', Icon: IconAlertTriangle, label: 'Flagged Returns', count: flagged.length, unit: 'flagged' },
-    { href: '/equipment', Icon: IconFolder, label: 'All Equipment', count: equipment.length, unit: 'items' },
-    { href: '/users', Icon: IconUsers, label: 'User Directory', count: users.length, unit: 'users' },
-    { href: '/logs', Icon: IconFileText, label: 'Activity Log', count: activity.length, unit: 'recent' },
+    {
+      href: '/equipment/pending',
+      Icon: IconPackage,
+      label: 'Pending Equipment',
+      count: pendingEquipment.length,
+      unit: 'items',
+      badge: pendingEquipment.length > 0 ? `${pendingEquipment.length} pending` : null,
+      badgeType: 'pending',
+    },
+    {
+      href: '/bookings/pending',
+      Icon: IconCalendar,
+      label: 'Pending Bookings',
+      count: pendingBookings.length,
+      unit: 'requests',
+      badge: pendingBookings.length > 0 ? `${pendingBookings.length} pending` : null,
+      badgeType: 'pending',
+    },
+    {
+      href: '/bookings/flagged',
+      Icon: IconAlertTriangle,
+      label: 'Flagged Returns',
+      count: flagged.length,
+      unit: 'flagged',
+      badge: flagged.length > 0 ? `${flagged.length} flagged` : null,
+      badgeType: 'flagged',
+    },
+    {
+      href: '/equipment',
+      Icon: IconFolder,
+      label: 'All Equipment',
+      count: equipment.length,
+      unit: 'total items',
+      badge: null,
+    },
+    {
+      href: '/users',
+      Icon: IconUsers,
+      label: 'User Directory',
+      count: users.length,
+      unit: 'registered users',
+      badge: null,
+    },
+    {
+      href: '/logs',
+      Icon: IconFileText,
+      label: 'Activity Log',
+      count: activity.length,
+      unit: 'recent events',
+      badge: null,
+    },
   ];
 
   const queues = [
     { href: '/equipment/pending', label: 'pending equipment listings', count: pendingEquipment.length },
     { href: '/bookings/pending', label: 'pending booking requests', count: pendingBookings.length },
-    { href: '/bookings/flagged', label: 'flagged returns', count: flagged.length },
+    { href: '/bookings/flagged', label: 'flagged returns requiring review', count: flagged.length },
   ];
   const topQueue = queues.filter((q) => q.count > 0).sort((a, b) => b.count - a.count)[0];
 
   const availableCount = equipment.filter((e) => e.availability === 'available').length;
+  const bookedCount = equipment.filter((e) => e.availability === 'booked').length;
+  const maintenanceCount = equipment.filter((e) => e.availability === 'maintenance' || e.availability === 'retired').length;
   const availabilityPct = equipment.length ? Math.round((availableCount / equipment.length) * 100) : 0;
 
   return (
-    <div className="dl-wrap">
-      <div className="dl-surface">
-        <div className="dl-header-row">
-          <div>
-            <span className="dl-tag">Tezpur University Command Center</span>
-            <h1 className="dl-title">Admin Operations Console</h1>
-            <p className="dl-sub">
-              Manage Tezpur University campus inventory, approve equipment loans, resolve Gemini Vision AI condition audits, and monitor platform health.
-            </p>
+    <div className="container">
+      <div className="page-header" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span className="brand-tag">Tezpur University Command Center</span>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Operations Overview</span>
           </div>
-          <button type="button" className="dl-export-btn" onClick={handleExport} disabled={exporting}>
+          <h1 className="page-title">Admin Operations Console</h1>
+          <p className="page-desc">
+            Manage Tezpur University campus inventory, approve equipment loans, resolve Gemini Vision AI condition audits, and monitor platform health.
+          </p>
+        </div>
+
+        <div className="dash-header-actions">
+          <button type="button" className="btn secondary" onClick={load} disabled={loading}>
+            <IconRefresh />
+            {loading ? 'Refreshing…' : 'Refresh'}
+          </button>
+          <button type="button" className="btn primary" onClick={handleExport} disabled={exporting}>
             <IconDownload />
             {exporting ? 'Exporting…' : 'Export CSV'}
           </button>
         </div>
+      </div>
 
-        {error && (
-          <div className="dl-error">
-            <IconAlertTriangle />
-            <span>{error}</span>
-          </div>
-        )}
+      {error && (
+        <div className="error-banner">
+          <IconAlertTriangle />
+          <span>{error}</span>
+        </div>
+      )}
 
-        {exportError && (
-          <div className="dl-error">
-            <IconAlertTriangle />
-            <span>Export failed: {exportError}</span>
-          </div>
-        )}
+      {exportError && (
+        <div className="error-banner">
+          <IconAlertTriangle />
+          <span>Export failed: {exportError}</span>
+        </div>
+      )}
 
-        <div className="dl-section-label">Sections</div>
-        <div className="dl-grid">
-          {sections.map((s, i) => (
-            <Link key={s.href} href={s.href} className="dl-card">
-              <div className="dl-icon-sq" style={{ background: colorFor(s.label, i) }}>
+      {/* KPI Section Cards */}
+      <div className="dash-grid">
+        {sections.map((s) => (
+          <Link key={s.href} href={s.href} className="dash-card">
+            <div className="dash-card-top">
+              <div className="dash-icon-sq">
                 <s.Icon />
               </div>
-              <div>
-                <div className="dl-card-label">{s.label}</div>
-                <div className="dl-card-count">{loading ? '…' : `${s.count} ${s.unit}`}</div>
-              </div>
-            </Link>
-          ))}
-        </div>
+              {s.badge && (
+                <span className={`badge ${s.badgeType}`}>{s.badge}</span>
+              )}
+            </div>
 
-        <div className="dl-layout">
-          <div>
-            <div className="dl-section-label">Recent Activity</div>
+            <div className="dash-card-body">
+              <div className="dash-card-val">
+                {loading ? '…' : s.count}
+                <span className="dash-card-unit">{s.unit}</span>
+              </div>
+              <div className="dash-card-label">{s.label}</div>
+            </div>
+
+            <div className="dash-card-footer">
+              <span>View details</span>
+              <span>→</span>
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      {/* Two-Column Details Area */}
+      <div className="dash-layout">
+        {/* Left Column: Recent Activity Feed */}
+        <div>
+          <div className="dash-section-header">
+            <h2 className="dash-section-title">
+              <IconFileText style={{ fontSize: '1.1rem', color: 'var(--text-secondary)' }} />
+              <span>Recent Activity Stream</span>
+            </h2>
+            <Link href="/logs" className="btn secondary" style={{ fontSize: '0.78rem', padding: '4px 10px' }}>
+              View All Logs →
+            </Link>
+          </div>
+
+          <div className="dash-activity-card">
             {activity.length === 0 && !loading ? (
-              <div className="dl-empty">No activity events recorded yet.</div>
+              <div className="empty-state" style={{ margin: 0, border: 'none', borderRadius: 0 }}>
+                <div className="empty-icon"><IconFileText /></div>
+                <div className="empty-title">No activity events recorded yet</div>
+                <div className="empty-text">Recent operations and audit trail events will appear here.</div>
+              </div>
             ) : (
-              <div className="dl-recent-list">
-                {activity.slice(0, 6).map((log) => {
+              <div className="dash-recent-list">
+                {activity.slice(0, 7).map((log) => {
                   const EventIcon = EVENT_TYPE_ICONS[log.type] || IconInfo;
                   return (
-                    <Link key={log._id} href="/logs" className="dl-recent-row">
-                      <div className="dl-recent-icon" style={{ background: colorFor(log.type) }}>
+                    <Link key={log._id} href="/logs" className="dash-recent-row">
+                      <div className="dash-recent-icon">
                         <EventIcon />
                       </div>
-                      <div className="dl-recent-main">
-                        <div className="dl-recent-msg">{log.message || log.type.replace(/_/g, ' ')}</div>
-                        <div className="dl-recent-meta">{log.user?.name || log.user?.email || 'System'}</div>
+                      <div className="dash-recent-main">
+                        <div className="dash-recent-msg">{log.message || log.type.replace(/_/g, ' ')}</div>
+                        <div className="dash-recent-meta">
+                          <span>{log.user?.name || log.user?.email || 'System'}</span>
+                          <span>•</span>
+                          <span style={{ textTransform: 'capitalize' }}>{log.type.replace(/_/g, ' ')}</span>
+                        </div>
                       </div>
-                      <div className="dl-recent-time">
+                      <div className="dash-recent-time">
                         {new Date(log.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                       </div>
-                      <IconChevronRight className="dl-recent-chevron" />
+                      <IconChevronRight className="dash-recent-chevron" />
                     </Link>
                   );
                 })}
               </div>
             )}
           </div>
+        </div>
 
-          <div>
-            <div className="dl-panel">
-              <div className="dl-panel-title">Quick Action</div>
-              {topQueue ? (
-                <Link href={topQueue.href} className="dl-action-box">
-                  <div className="dl-action-icon">
-                    <IconInbox />
-                  </div>
-                  <div className="dl-action-text">{topQueue.count} {topQueue.label}</div>
-                  <div className="dl-action-sub">Needs your review</div>
-                </Link>
-              ) : (
-                <div className="dl-action-box" style={{ cursor: 'default' }}>
-                  <div className="dl-action-icon">
-                    <IconCheckCircle />
-                  </div>
-                  <div className="dl-action-text">All caught up</div>
-                  <div className="dl-action-sub">Nothing waiting on review right now</div>
-                </div>
-              )}
+        {/* Right Column: Status Panels */}
+        <div>
+          {/* Quick Action Priority Box */}
+          <div className="dash-panel">
+            <div className="dash-panel-header">
+              <span className="dash-panel-title">Queue Priority</span>
+              {topQueue && <span className="badge pending">Action Needed</span>}
             </div>
 
-            <div className="dl-panel">
-              <div className="dl-panel-title">Equipment Availability</div>
-              <div className="dl-meter-track">
-                <div className="dl-meter-fill" style={{ width: `${availabilityPct}%` }} />
+            {topQueue ? (
+              <Link href={topQueue.href} className="dash-action-box has-action">
+                <div className="dash-action-icon">
+                  <IconInbox />
+                </div>
+                <div className="dash-action-text">{topQueue.count} {topQueue.label}</div>
+                <div className="dash-action-sub">Click to review and take action →</div>
+              </Link>
+            ) : (
+              <div className="dash-action-box" style={{ cursor: 'default' }}>
+                <div className="dash-action-icon" style={{ color: 'var(--color-success)' }}>
+                  <IconCheckCircle />
+                </div>
+                <div className="dash-action-text">All Queues Cleared</div>
+                <div className="dash-action-sub">No items waiting on admin review right now</div>
               </div>
-              <div className="dl-meter-label">
-                <span>{availableCount} of {equipment.length} available</span>
-                <span>{availabilityPct}%</span>
+            )}
+          </div>
+
+          {/* Equipment Availability Gauge */}
+          <div className="dash-panel">
+            <div className="dash-panel-header">
+              <span className="dash-panel-title">Campus Equipment Health</span>
+              <Link href="/equipment" style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                Catalog →
+              </Link>
+            </div>
+
+            <div className="dash-meter-card">
+              <div className="dash-meter-stats">
+                <span className="dash-meter-pct">{availabilityPct}%</span>
+                <span className="dash-meter-fraction">{availableCount} of {equipment.length} Available</span>
+              </div>
+
+              <div className="dash-meter-track">
+                <div className="dash-meter-fill" style={{ width: `${availabilityPct}%` }} />
+              </div>
+
+              <div className="dash-breakdown-row">
+                <span>{availableCount} available</span>
+                <span>{bookedCount} on loan</span>
+                {maintenanceCount > 0 && <span>{maintenanceCount} maintenance</span>}
               </div>
             </div>
           </div>

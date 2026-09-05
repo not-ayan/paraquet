@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { apiFetch } from '../../lib/api';
-import { IconAlertTriangle, IconCheckCircle, IconPackage } from '../icons';
+import { IconAlertTriangle, IconCheckCircle, IconPackage, IconRefresh } from '../icons';
 
 const AVAILABILITY_OPTIONS = ['available', 'booked', 'maintenance', 'retired'];
 
 export default function AllEquipmentPage() {
   const { getToken } = useAuth();
   const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [approvalFilter, setApprovalFilter] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -19,6 +20,7 @@ export default function AllEquipmentPage() {
   const [maxDaysState, setMaxDaysState] = useState({});
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const token = await getToken();
       const qs = approvalFilter ? `?approvalStatus=${approvalFilter}` : '';
@@ -26,6 +28,8 @@ export default function AllEquipmentPage() {
       setItems(data);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   }, [getToken, approvalFilter]);
 
@@ -105,14 +109,24 @@ export default function AllEquipmentPage() {
 
   return (
     <div className="container">
-      <div className="page-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span className="badge available">Total Catalogue: {items.length}</span>
+      <div className="page-header" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span className="brand-tag">Tezpur University · Inventory Management</span>
+            <span className="badge available">Total Catalog: {items.length}</span>
+          </div>
+          <h1 className="page-title">Equipment Inventory</h1>
+          <p className="page-desc">
+            Manage campus inventory, configure loan duration limits (1–30 days), modify live availability statuses, and maintain catalogue health.
+          </p>
         </div>
-        <h1 className="page-title">Equipment Inventory</h1>
-        <p className="page-desc">
-          Manage campus items, set max allowable loan days (1–30 days), modify availability statuses, and manage catalogue health.
-        </p>
+
+        <div className="dash-header-actions">
+          <button type="button" className="btn secondary" onClick={load} disabled={loading}>
+            <IconRefresh />
+            {loading ? 'Refreshing…' : 'Refresh Inventory'}
+          </button>
+        </div>
       </div>
 
       <div className="filters">
@@ -121,7 +135,7 @@ export default function AllEquipmentPage() {
           placeholder="Filter by name or category..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          style={{ width: 260 }}
+          style={{ width: 280 }}
         />
         <select value={approvalFilter} onChange={(e) => setApprovalFilter(e.target.value)}>
           <option value="">All Approval Statuses</option>
@@ -145,11 +159,11 @@ export default function AllEquipmentPage() {
         </div>
       )}
 
-      {filteredItems.length === 0 && !error && (
+      {filteredItems.length === 0 && !error && !loading && (
         <div className="empty-state">
           <div className="empty-icon"><IconPackage /></div>
           <div className="empty-title">No equipment found</div>
-          <div className="empty-text">No equipment matches your current search or filter criteria.</div>
+          <div className="empty-text">No equipment items matched your current search or filter criteria.</div>
         </div>
       )}
 
@@ -214,7 +228,7 @@ export default function AllEquipmentPage() {
                         onClick={() => updateMaxBorrowDays(item._id, maxDaysState[item._id] ?? (item.maxBorrowDays || 3))}
                         title="Save max allowable loan days"
                       >
-                        {savingId === item._id ? '...' : 'Save'}
+                        {savingId === item._id ? '…' : 'Save'}
                       </button>
                     </div>
                   </td>
@@ -240,7 +254,7 @@ export default function AllEquipmentPage() {
                       onClick={() => handleDelete(item._id, item.name)}
                       title={`Permanently delete ${item.name}`}
                     >
-                      {deletingId === item._id ? 'Deleting...' : 'Delete'}
+                      {deletingId === item._id ? 'Deleting…' : 'Delete'}
                     </button>
                   </td>
                 </tr>

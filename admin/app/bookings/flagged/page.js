@@ -3,22 +3,26 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { apiFetch } from '../../../lib/api';
-import { IconAlertTriangle, IconShieldCheck, IconUpload, IconDownload, IconCpu } from '../../icons';
+import { IconAlertTriangle, IconShieldCheck, IconUpload, IconDownload, IconCpu, IconRefresh } from '../../icons';
 
 export default function FlaggedBookingsPage() {
   const { getToken } = useAuth();
   const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [feeInputs, setFeeInputs] = useState({});
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const token = await getToken();
       const data = await apiFetch('/api/admin/bookings/flagged', { token });
       setBookings(data);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   }, [getToken]);
 
@@ -46,14 +50,26 @@ export default function FlaggedBookingsPage() {
 
   return (
     <div className="container">
-      <div className="page-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span className="badge flagged">AI Incident Queue: {bookings.length}</span>
+      <div className="page-header" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span className="brand-tag">Tezpur University · AI Condition Audits</span>
+            <span className={`badge ${bookings.length > 0 ? 'flagged' : 'approved'}`}>
+              {bookings.length} {bookings.length === 1 ? 'Incident' : 'Incidents'} Flagged
+            </span>
+          </div>
+          <h1 className="page-title">Flagged Condition Audits</h1>
+          <p className="page-desc">
+            Equipment returns where Gemini Vision AI detected physical discrepancies or damage compared to baseline pickup evidence.
+          </p>
         </div>
-        <h1 className="page-title">Flagged Condition Audits</h1>
-        <p className="page-desc">
-          Equipment returns where Gemini Vision detected physical discrepancies or damage compared to pickup baseline photos.
-        </p>
+
+        <div className="dash-header-actions">
+          <button type="button" className="btn secondary" onClick={load} disabled={loading}>
+            <IconRefresh />
+            {loading ? 'Refreshing…' : 'Refresh Queue'}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -63,11 +79,11 @@ export default function FlaggedBookingsPage() {
         </div>
       )}
 
-      {bookings.length === 0 && !error && (
+      {bookings.length === 0 && !error && !loading && (
         <div className="empty-state">
-          <div className="empty-icon"><IconShieldCheck /></div>
+          <div className="empty-icon"><IconShieldCheck style={{ color: 'var(--color-success)' }} /></div>
           <div className="empty-title">All equipment clear!</div>
-          <div className="empty-text">No active returns flagged with damage or condition discrepancies.</div>
+          <div className="empty-text">No active campus returns flagged with damage or condition discrepancies.</div>
         </div>
       )}
 
@@ -94,7 +110,7 @@ export default function FlaggedBookingsPage() {
                   </span>
                 </div>
                 <p className="incident-meta">
-                  Borrower: <strong>{b.user?.name || b.user?.email}</strong> ({b.user?.email}) &bull; Loan: {new Date(b.startDate).toLocaleDateString()} – {new Date(b.endDate).toLocaleDateString()}
+                  Borrower: <strong style={{ color: 'var(--text-primary)' }}>{b.user?.name || b.user?.email}</strong> ({b.user?.email}) &bull; Loan: {new Date(b.startDate).toLocaleDateString()} – {new Date(b.endDate).toLocaleDateString()}
                 </p>
               </div>
 
@@ -121,7 +137,7 @@ export default function FlaggedBookingsPage() {
               <div className="inspection-col">
                 <div className="inspection-heading">
                   <IconUpload />
-                  <span>Pickup Issue Evidence (Baseline)</span>
+                  <span>Pickup Baseline Evidence</span>
                 </div>
                 <div className="photos">
                   {(b.pickupCondition?.photos || []).map((url, i) => (
@@ -135,11 +151,11 @@ export default function FlaggedBookingsPage() {
                 </div>
                 {b.pickupCondition?.notes && (
                   <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontStyle: 'italic', margin: '10px 0 0 0' }}>
-                    "{b.pickupCondition.notes}"
+                    &ldquo;{b.pickupCondition.notes}&rdquo;
                   </p>
                 )}
                 {picAi?.detailedSummary && (
-                  <div style={{ marginTop: 10, padding: 10, background: 'var(--bg-surface)', borderRadius: 8, fontSize: '0.8rem', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                  <div style={{ marginTop: 10, padding: 10, background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', fontSize: '0.8rem', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
                     <strong style={{ color: 'var(--text-primary)' }}>AI Baseline Note:</strong> {picAi.detailedSummary}
                   </div>
                 )}
@@ -149,7 +165,7 @@ export default function FlaggedBookingsPage() {
               <div className="inspection-col">
                 <div className="inspection-heading">
                   <IconDownload />
-                  <span>Return Verification Photo</span>
+                  <span>Return Inspection Photo</span>
                 </div>
                 <div className="photos">
                   {(b.returnCondition?.photos || []).map((url, i) => (
@@ -163,7 +179,7 @@ export default function FlaggedBookingsPage() {
                 </div>
                 {b.returnCondition?.notes && (
                   <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontStyle: 'italic', margin: '10px 0 0 0' }}>
-                    "{b.returnCondition.notes}"
+                    &ldquo;{b.returnCondition.notes}&rdquo;
                   </p>
                 )}
               </div>
@@ -185,11 +201,11 @@ export default function FlaggedBookingsPage() {
                 <div className="damage-breakdown-grid">
                   {/* Cosmetic Flaws */}
                   <div className="damage-pill-box">
-                    <div className="damage-pill-label" style={{ color: '#b45309' }}>
+                    <div className="damage-pill-label" style={{ color: 'var(--color-warning-text)' }}>
                       Cosmetic Flaws (Surface Marks / Scuffs)
                     </div>
                     {retAi.cosmeticFlaws && retAi.cosmeticFlaws.length > 0 ? (
-                      <ul style={{ margin: 0, paddingLeft: 18, fontSize: '0.82rem', color: '#92400e' }}>
+                      <ul style={{ margin: 0, paddingLeft: 18, fontSize: '0.82rem', color: 'var(--color-warning-text)' }}>
                         {retAi.cosmeticFlaws.map((flaw, idx) => (
                           <li key={idx} style={{ marginBottom: 2 }}>{flaw}</li>
                         ))}
@@ -201,11 +217,11 @@ export default function FlaggedBookingsPage() {
 
                   {/* Actual Damage */}
                   <div className="damage-pill-box">
-                    <div className="damage-pill-label" style={{ color: '#be123c' }}>
+                    <div className="damage-pill-label" style={{ color: 'var(--color-danger-text)' }}>
                       Actual / Structural Damage (Functional Impact)
                     </div>
                     {retAi.actualDamage && retAi.actualDamage.length > 0 ? (
-                      <ul style={{ margin: 0, paddingLeft: 18, fontSize: '0.82rem', color: '#9f1239', fontWeight: 600 }}>
+                      <ul style={{ margin: 0, paddingLeft: 18, fontSize: '0.82rem', color: 'var(--color-danger-text)', fontWeight: 600 }}>
                         {retAi.actualDamage.map((dmg, idx) => (
                           <li key={idx} style={{ marginBottom: 2 }}>{dmg}</li>
                         ))}
@@ -217,7 +233,7 @@ export default function FlaggedBookingsPage() {
                 </div>
 
                 {retAi.recommendedAction && (
-                  <div style={{ marginTop: 12, padding: '8px 12px', background: 'rgba(255,255,255,0.7)', borderRadius: 6, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                  <div style={{ marginTop: 12, padding: '10px 14px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', fontSize: '0.82rem', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}>
                     <strong style={{ color: 'var(--text-primary)' }}>Recommended Action:</strong> {retAi.recommendedAction}
                   </div>
                 )}
@@ -231,7 +247,7 @@ export default function FlaggedBookingsPage() {
                 disabled={busyId === b._id}
                 onClick={() => resolve(b._id, { withFee: false })}
               >
-                {busyId === b._id ? 'Resolving...' : 'Clear Incident — No Damage Fee'}
+                {busyId === b._id ? 'Resolving…' : 'Clear Incident — No Damage Fee'}
               </button>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -251,7 +267,7 @@ export default function FlaggedBookingsPage() {
                   disabled={busyId === b._id || !feeInputs[b._id]}
                   onClick={() => resolve(b._id, { withFee: true })}
                 >
-                  {busyId === b._id ? 'Applying...' : 'Apply Fee & Resolve'}
+                  {busyId === b._id ? 'Applying…' : 'Apply Fee & Resolve'}
                 </button>
               </div>
             </div>

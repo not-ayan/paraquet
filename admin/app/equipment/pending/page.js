@@ -3,21 +3,25 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { apiFetch } from '../../../lib/api';
-import { IconAlertTriangle, IconCheckCircle, IconPackage } from '../../icons';
+import { IconAlertTriangle, IconCheckCircle, IconPackage, IconRefresh } from '../../icons';
 
 export default function PendingEquipmentPage() {
   const { getToken } = useAuth();
   const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const token = await getToken();
       const data = await apiFetch('/api/admin/equipment/pending', { token });
       setItems(data);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   }, [getToken]);
 
@@ -54,14 +58,26 @@ export default function PendingEquipmentPage() {
 
   return (
     <div className="container">
-      <div className="page-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span className="badge pending">Pending Moderation: {items.length}</span>
+      <div className="page-header" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span className="brand-tag">Tezpur University · Inventory Moderation</span>
+            <span className={`badge ${items.length > 0 ? 'pending' : 'approved'}`}>
+              {items.length} {items.length === 1 ? 'Listing' : 'Listings'} Pending
+            </span>
+          </div>
+          <h1 className="page-title">Pending Equipment Listings</h1>
+          <p className="page-desc">
+            Review community-submitted equipment, verify specifications and photo guidelines, then approve to the active campus catalogue.
+          </p>
         </div>
-        <h1 className="page-title">Pending Equipment Listings</h1>
-        <p className="page-desc">
-          Review community-submitted equipment, check specifications and photo guidelines, then approve to the active catalogue.
-        </p>
+
+        <div className="dash-header-actions">
+          <button type="button" className="btn secondary" onClick={load} disabled={loading}>
+            <IconRefresh />
+            {loading ? 'Refreshing…' : 'Refresh Queue'}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -71,11 +87,11 @@ export default function PendingEquipmentPage() {
         </div>
       )}
 
-      {items.length === 0 && !error && (
+      {items.length === 0 && !error && !loading && (
         <div className="empty-state">
-          <div className="empty-icon"><IconCheckCircle /></div>
+          <div className="empty-icon"><IconCheckCircle style={{ color: 'var(--color-success)' }} /></div>
           <div className="empty-title">All listings moderated</div>
-          <div className="empty-text">No equipment postings are waiting for approval right now.</div>
+          <div className="empty-text">No equipment postings are waiting for administrative review right now.</div>
         </div>
       )}
 
@@ -109,7 +125,7 @@ export default function PendingEquipmentPage() {
                       )}
                       <div>
                         <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{item.name}</div>
-                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{item.description ? item.description.slice(0, 50) + '...' : 'No description'}</div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{item.description ? item.description.slice(0, 60) + '…' : 'No description'}</div>
                       </div>
                     </div>
                   </td>
@@ -122,7 +138,7 @@ export default function PendingEquipmentPage() {
                     <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{item.quantity}</span>
                   </td>
                   <td>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                    <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
                       {new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                     </span>
                   </td>
@@ -133,14 +149,14 @@ export default function PendingEquipmentPage() {
                         disabled={busyId === item._id}
                         onClick={() => act(item._id, 'approve')}
                       >
-                        {busyId === item._id ? '...' : 'Approve'}
+                        {busyId === item._id ? '…' : 'Approve'}
                       </button>
                       <button
                         className="btn reject"
                         disabled={busyId === item._id}
                         onClick={() => act(item._id, 'reject')}
                       >
-                        {busyId === item._id ? '...' : 'Reject'}
+                        {busyId === item._id ? '…' : 'Reject'}
                       </button>
                       <button
                         className="btn delete"

@@ -71,17 +71,24 @@ export default function ActivityLogPage() {
 
   return (
     <div className="container">
-      <div className="page-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span className="brand-tag">System Audit Trail</span>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            {logs.length} logged events
-          </span>
+      <div className="page-header" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span className="brand-tag">Tezpur University · System Audit Trail</span>
+            <span className="badge user">{logs.length} Logged Events</span>
+          </div>
+          <h1 className="page-title">Activity &amp; Inspection Audit Logs</h1>
+          <p className="page-desc">
+            Live campus audit trail capturing booking requests, loan approvals, condition evidence photos, and Gemini Vision AI inspection reports.
+          </p>
         </div>
-        <h1 className="page-title">Activity &amp; Inspection Audit Logs</h1>
-        <p className="page-desc">
-          Live campus audit trail capturing booking requests, loan approvals, condition evidence photos, and Gemini Vision AI inspection reports.
-        </p>
+
+        <div className="dash-header-actions">
+          <button type="button" className="btn secondary" onClick={load} disabled={loading}>
+            <IconRefresh />
+            {loading ? 'Refreshing…' : 'Refresh Log'}
+          </button>
+        </div>
       </div>
 
       <div className="filters">
@@ -90,10 +97,6 @@ export default function ActivityLogPage() {
             <option key={t.value} value={t.value}>{t.label}</option>
           ))}
         </select>
-        <button className="btn secondary" onClick={load} disabled={loading} style={{ marginLeft: 'auto', gap: 6 }}>
-          <IconRefresh />
-          {loading ? 'Refreshing...' : 'Refresh Log'}
-        </button>
       </div>
 
       {error && (
@@ -253,10 +256,10 @@ export default function ActivityLogPage() {
                     <div className="damage-breakdown-grid" style={{ marginTop: 8 }}>
                       {aiAnalysis.cosmeticFlaws && aiAnalysis.cosmeticFlaws.length > 0 && (
                         <div className="damage-pill-box">
-                          <div className="damage-pill-label" style={{ color: '#b45309' }}>
+                          <div className="damage-pill-label" style={{ color: 'var(--color-warning-text)' }}>
                             Cosmetic Flaws
                           </div>
-                          <ul style={{ margin: 0, paddingLeft: 16, fontSize: '0.78rem', color: '#92400e' }}>
+                          <ul style={{ margin: 0, paddingLeft: 16, fontSize: '0.78rem', color: 'var(--color-warning-text)' }}>
                             {aiAnalysis.cosmeticFlaws.map((flaw, i) => (
                               <li key={i}>{flaw}</li>
                             ))}
@@ -266,10 +269,10 @@ export default function ActivityLogPage() {
 
                       {aiAnalysis.actualDamage && aiAnalysis.actualDamage.length > 0 && (
                         <div className="damage-pill-box">
-                          <div className="damage-pill-label" style={{ color: '#be123c' }}>
+                          <div className="damage-pill-label" style={{ color: 'var(--color-danger-text)' }}>
                             Actual / Structural Damage
                           </div>
-                          <ul style={{ margin: 0, paddingLeft: 16, fontSize: '0.78rem', color: '#9f1239', fontWeight: 600 }}>
+                          <ul style={{ margin: 0, paddingLeft: 16, fontSize: '0.78rem', color: 'var(--color-danger-text)', fontWeight: 600 }}>
                             {aiAnalysis.actualDamage.map((dmg, i) => (
                               <li key={i}>{dmg}</li>
                             ))}
@@ -280,8 +283,8 @@ export default function ActivityLogPage() {
                   )}
 
                   {aiAnalysis?.recommendedAction && (
-                    <div style={{ marginTop: 8, fontSize: '0.8rem', opacity: 0.85 }}>
-                      <strong>Action:</strong> {aiAnalysis.recommendedAction}
+                    <div style={{ marginTop: 8, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      <strong style={{ color: 'var(--text-primary)' }}>Recommended Action:</strong> {aiAnalysis.recommendedAction}
                     </div>
                   )}
                 </div>
