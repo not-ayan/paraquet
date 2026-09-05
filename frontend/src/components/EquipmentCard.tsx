@@ -2,17 +2,44 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, MapPin } from 'lucide-react';
+import { ArrowUpRight, MapPin, Calendar, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Equipment } from '@/lib/types';
 
 interface EquipmentCardProps {
   equipment: Equipment;
+  selectedDates?: {
+    startDate?: string;
+    endDate?: string;
+  };
 }
 
-export default function EquipmentCard({ equipment }: EquipmentCardProps) {
+export default function EquipmentCard({ equipment, selectedDates }: EquipmentCardProps) {
   const isAvailable = equipment.availabilityStatus === 'AVAILABLE' && equipment.approvalStatus === 'APPROVED';
 
+  const hrefWithDates = selectedDates?.startDate && selectedDates?.endDate
+    ? `/equipment/${equipment.id}?startDate=${selectedDates.startDate}&endDate=${selectedDates.endDate}`
+    : `/equipment/${equipment.id}`;
+
   const getStatusPill = () => {
+    // If date availability has been evaluated for this item
+    if (equipment.dateAvailability) {
+      if (equipment.dateAvailability.isAvailable) {
+        return (
+          <span className="badge-pill bg-[#E8F5EB] text-[#1B7A42] border border-[#A7F3D0] shadow-xs">
+            ✓ Free on Dates
+          </span>
+        );
+      }
+      return (
+        <span 
+          className="badge-pill bg-[#FEF9C3] text-[#854D0E] border border-[#FDE047] shadow-xs truncate max-w-[140px]"
+          title={equipment.dateAvailability.conflictReason || 'Reserved for selected dates'}
+        >
+          ⏳ {equipment.dateAvailability.conflictReason || 'Booked on Dates'}
+        </span>
+      );
+    }
+
     if (equipment.approvalStatus === 'PENDING') {
       return <span className="badge-pill badge-pending">Pending Review</span>;
     }
@@ -29,7 +56,7 @@ export default function EquipmentCard({ equipment }: EquipmentCardProps) {
     <div className="card-paraquet p-3 sm:p-4 flex flex-col group h-full">
       
       {/* Media Inset Frame */}
-      <Link href={`/equipment/${equipment.id}`} className="block relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-[#EDEDEA] cursor-pointer">
+      <Link href={hrefWithDates} className="block relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-[#EDEDEA] cursor-pointer">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={equipment.images[0] || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=800&q=80'}
@@ -70,7 +97,7 @@ export default function EquipmentCard({ equipment }: EquipmentCardProps) {
       {/* Content Baseline */}
       <div className="pt-3.5 pb-0.5 px-1 flex flex-col justify-between flex-grow">
         <div className="flex items-start justify-between gap-2">
-          <Link href={`/equipment/${equipment.id}`} className="block min-w-0 flex-1">
+          <Link href={hrefWithDates} className="block min-w-0 flex-1">
             <h3 className="text-fluid-h3 font-bold text-[#111110] group-hover:underline truncate">
               {equipment.name}
             </h3>
@@ -79,6 +106,31 @@ export default function EquipmentCard({ equipment }: EquipmentCardProps) {
             {equipment.maxBorrowDays || 3}d max
           </span>
         </div>
+
+        {/* Date-Specific Availability Callout */}
+        {equipment.dateAvailability && (
+          <div className={`mt-2 py-1 px-2.5 rounded-xl text-[11px] font-semibold flex items-center justify-between gap-1.5 ${
+            equipment.dateAvailability.isAvailable
+              ? 'bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0]'
+              : 'bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A]'
+          }`}>
+            <span className="flex items-center gap-1.5 min-w-0 truncate">
+              {equipment.dateAvailability.isAvailable ? (
+                <CheckCircle2 className="w-3 h-3 text-[#166534] flex-shrink-0" />
+              ) : (
+                <AlertCircle className="w-3 h-3 text-[#B45309] flex-shrink-0" />
+              )}
+              <span className="truncate">
+                {equipment.dateAvailability.isAvailable
+                  ? 'Free for requested dates'
+                  : equipment.dateAvailability.conflictReason}
+              </span>
+            </span>
+            <span className="text-[10px] uppercase font-bold opacity-80 flex-shrink-0">
+              {equipment.dateAvailability.isAvailable ? 'Ready' : 'Booked'}
+            </span>
+          </div>
+        )}
 
         <div className="mt-2.5 pt-2 border-t border-[#E2E2DE]/60 flex items-center justify-between text-fluid-micro text-[#70706B] gap-2">
           <span className="flex items-center gap-1 min-w-0 flex-1 truncate">
