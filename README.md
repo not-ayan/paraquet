@@ -80,15 +80,12 @@ Everything listed below was engineered **above and beyond** the required 48-hour
 | Extra Module | Category | What Was Added |
 |---|---|---|
 | **Student-Side Equipment Listing & Crowdsourcing** | Community & Peer-to-Peer | **The original specification only required admin-posted inventory.** We engineered an end-to-end community crowdsourcing flow allowing students and faculty to list their own equipment (`/equipment/new`) with photo uploads, specifications, and owner attribution, governed by an automated admin moderation queue (`submitted/` → `approved/`). |
-| **Dedicated Admin Command Center** | Administration | Standalone Next.js application (`/admin` on port 3001) with dark frosted-glass UI, Bento analytics, live moderation queues, and incident arbitration. |
 | **Resend Transactional Email Engine** | Notifications | Branded HTML notification delivery for reservation requests, approvals, rejections, pickup receipts, return summaries, and overdue warnings. |
-| **Gemini 3.5 Flash AI Multimodal Vision** | AI Inspection | Automatic visual inspection comparing baseline pickup photos against return photos, classifying cosmetic flaws vs actual structural damage with similarity scoring. |
+| **Gemini 3.5 Flash AI ** | AI Inspection | Automatic visual inspection comparing baseline pickup photos against return photos, classifying cosmetic flaws vs actual structural damage with similarity scoring. |
 | **Automated Overdue Loan Daemon** | Background Service | Scheduled cron service continuously tracking active loans against due dates, calculating automated overdue fees (₹50/day), and alerting borrowers. |
 | **Cloudinary Media Pipeline** | Cloud Storage & CDN | Direct and multi-image uploads with automatic format/quality optimization and automated lifecycle promotion (`submitted/` → `approved/`). |
 | **Live Campus Custody Audit Stream** | Audit Trail & Compliance | Unified activity feed logging every equipment addition, booking transition, handover verification, and administrative override. |
 | **In-Memory Caching & Query Optimization** | Performance & Scalability | In-memory cache layer with prefix invalidation, MongoDB connection pooling, and lean query projection for sub-50ms API responses. |
-| **Currency & Campus Localization** | Localization | Full localization for Tezpur University, Assam with Indian Rupee (`₹`) overdue fees and damage assessments. |
-
 ---
 
 ## Admin Command Center (`http://localhost:3001`)
