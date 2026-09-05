@@ -13,7 +13,10 @@ import {
   UserCheck,
   Camera,
   ZoomIn,
-  X
+  X,
+  History,
+  ArrowRight,
+  Wrench,
 } from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
 import { apiClient } from '@/lib/api';
@@ -31,6 +34,39 @@ export default function EquipmentDetailPage() {
   const [equipmentActivity, setEquipmentActivity] = useState<ActivityLog[]>([]);
   const [selectedPhotoPreview, setSelectedPhotoPreview] = useState<{ url: string; title: string } | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+
+  // Status Change State (WEB-C08: Change History)
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [newStatusSelection, setNewStatusSelection] = useState<'available' | 'maintenance' | 'retired'>('maintenance');
+  const [statusChangeReason, setStatusChangeReason] = useState('');
+  const [isSubmittingStatus, setIsSubmittingStatus] = useState(false);
+  const [statusModalError, setStatusModalError] = useState<string | null>(null);
+
+  const handleStatusChangeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!statusChangeReason.trim()) {
+      setStatusModalError('Please provide a justification reason for this status change.');
+      return;
+    }
+
+    setIsSubmittingStatus(true);
+    setStatusModalError(null);
+
+    try {
+      const updated = await apiClient.updateEquipmentStatus(
+        equipment!.id,
+        newStatusSelection,
+        statusChangeReason.trim()
+      );
+      setEquipment(updated);
+      setIsStatusModalOpen(false);
+      setStatusChangeReason('');
+    } catch (err: any) {
+      setStatusModalError(err.message || 'Failed to update equipment status');
+    } finally {
+      setIsSubmittingStatus(false);
+    }
+  };
 
   // Booking Form State
   const [startDate, setStartDate] = useState(() => {
@@ -89,6 +125,15 @@ export default function EquipmentDetailPage() {
         .catch((err) => {
           console.warn('Error loading equipment activity:', err);
         });
+
+      // Pre-fill booking dates if passed from catalogue search (?startDate=...&endDate=...)
+      if (typeof window !== 'undefined') {
+        const sp = new URLSearchParams(window.location.search);
+        const qStart = sp.get('startDate');
+        const qEnd = sp.get('endDate');
+        if (qStart) setStartDate(qStart);
+        if (qEnd) setEndDate(qEnd);
+      }
 
       return () => {
         isMounted = false;
@@ -387,6 +432,112 @@ export default function EquipmentDetailPage() {
             </div>
           )}
 
+          {/* WEB-C08: Status Change History Card */}
+          <div className="card-paraquet p-6 space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <History className="w-4 h-4 text-[#111110]" />
+                <h3 className="text-fluid-body font-bold text-[#111110]">
+                  Status Change History
+                </h3>
+                <span className="text-[10px] font-bold px-2 py-0.5 bg-[#F0F0EE] text-[#70706B] rounded-full border border-[#E2E2DE]">
+                  WEB-C08
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusModalError(null);
+                  setIsStatusModalOpen(true);
+                }}
+                className="btn-secondary text-fluid-micro py-1.5 px-3 inline-flex items-center gap-1.5 hover:border-[#111110]"
+              >
+                <Wrench className="w-3.5 h-3.5" />
+                <span>Update Status</span>
+              </button>
+            </div>
+
+            <p className="text-fluid-micro text-[#70706B]">
+              Audit history of availability & maintenance transitions, tracking previous status, new status, timestamp, and justification reason.
+            </p>
+
+            {equipment.statusHistory && equipment.statusHistory.length > 0 ? (
+              <div className="space-y-3 pt-1">
+                {equipment.statusHistory.map((rec, idx) => {
+                  const dateObj = new Date(rec.changedAt);
+                  const formattedDate = !isNaN(dateObj.getTime())
+                    ? dateObj.toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    : rec.changedAt;
+
+                  const getStatusBadge = (val: string) => {
+                    const v = (val || '').toLowerCase();
+                    if (v === 'available') {
+                      return <span className="badge-pill badge-available uppercase text-[10px]">{val}</span>;
+                    }
+                    if (v === 'maintenance') {
+                      return <span className="badge-pill bg-[#FEF9C3] text-[#854D0E] uppercase text-[10px] border border-[#FDE047]">{val}</span>;
+                    }
+                    if (v === 'retired') {
+                      return <span className="badge-pill bg-[#FEE2E2] text-[#991B1B] uppercase text-[10px] border border-[#FCA5A5]">{val}</span>;
+                    }
+                    return <span className="badge-pill badge-neutral uppercase text-[10px]">{val}</span>;
+                  };
+
+                  return (
+                    <div
+                      key={idx}
+                      className="p-4 bg-[#F9F9F8] border border-[#EDEDEA] rounded-2xl space-y-2.5 transition-all hover:border-[#D0D0CC]"
+                    >
+                      <div className="flex items-center justify-between flex-wrap gap-2 text-fluid-micro">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] text-[#70706B] font-medium">Transition:</span>
+                          {getStatusBadge(rec.previousValue)}
+                          <ArrowRight className="w-3.5 h-3.5 text-[#70706B]" />
+                          {getStatusBadge(rec.newValue)}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 text-[#70706B] text-[11px]">
+                          <Clock className="w-3 h-3" />
+                          <span>{formattedDate}</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white border border-[#EAEAE6] p-3 rounded-xl shadow-2xs">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#70706B] block mb-1">
+                          Justification Reason
+                        </span>
+                        <p className="text-fluid-micro text-[#111110] italic">
+                          "{rec.reason}"
+                        </p>
+                      </div>
+
+                      <div className="text-[10px] text-[#70706B] flex items-center justify-between pt-0.5">
+                        <span>Logged by: <strong className="text-[#111110] font-semibold">{rec.changedByName || 'Community Steward'}</strong></span>
+                        <span className="text-[9px] text-[#9E9E9A] font-mono">Record #{equipment.statusHistory!.length - idx}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-4 bg-[#F9F9F8] border border-[#EDEDEA] rounded-2xl text-center space-y-1">
+                <p className="text-fluid-micro text-[#70706B]">
+                  No previous status transitions recorded for this equipment.
+                </p>
+                <span className="text-[11px] font-bold text-[#1B7A42]">
+                  Current Status: {(equipment.availabilityStatus || 'AVAILABLE').toUpperCase()}
+                </span>
+              </div>
+            )}
+          </div>
+
           {/* Steward Card */}
           <div className="card-paraquet p-5 flex flex-wrap sm:flex-nowrap items-center justify-between gap-4">
             <div className="flex items-center gap-3.5 min-w-0">
@@ -645,6 +796,102 @@ export default function EquipmentDetailPage() {
             <p className="text-center text-fluid-micro text-white/70">
               Verified condition handover proof • Click background or close button to exit
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* WEB-C08: Status Change Modal */}
+      {isStatusModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white border border-[#EDEDEA] rounded-3xl p-6 sm:p-8 max-w-lg w-full space-y-5 shadow-2xl animate-scale-in">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 bg-[#F0F0EE] rounded-xl text-[#111110]">
+                  <Wrench className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-fluid-body font-bold text-[#111110]">
+                    Update Equipment Status
+                  </h3>
+                  <p className="text-fluid-micro text-[#70706B]">
+                    Record status transition & audit justification (WEB-C08)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsStatusModalOpen(false)}
+                className="text-[#70706B] hover:text-[#111110] p-1.5 rounded-full hover:bg-[#F0F0EE] transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {statusModalError && (
+              <div className="p-3 bg-[#FEE2E2] border border-[#FCA5A5] rounded-xl text-fluid-micro text-[#991B1B] flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{statusModalError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleStatusChangeSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-fluid-micro font-bold text-[#111110] block">
+                  New Status
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['available', 'maintenance', 'retired'] as const).map((st) => (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() => setNewStatusSelection(st)}
+                      className={`py-2 px-3 rounded-xl border text-fluid-micro font-bold capitalize transition-all ${
+                        newStatusSelection === st
+                          ? 'border-[#111110] bg-[#111110] text-white shadow-sm'
+                          : 'border-[#E2E2DE] bg-[#F9F9F8] text-[#70706B] hover:border-[#111110] hover:text-[#111110]'
+                      }`}
+                    >
+                      {st}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-fluid-micro font-bold text-[#111110] block">
+                  Justification / Reason <span className="text-[#991B1B]">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  value={statusChangeReason}
+                  onChange={(e) => setStatusChangeReason(e.target.value)}
+                  placeholder="e.g., Scheduled bi-weekly sensor dust cleaning and optical calibration..."
+                  className="input-paraquet text-fluid-micro"
+                  required
+                />
+                <span className="text-[10px] text-[#70706B] block">
+                  A clear reason must be provided to maintain compliance with challenge card WEB-C08.
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsStatusModalOpen(false)}
+                  className="btn-secondary text-fluid-micro py-2 px-4"
+                  disabled={isSubmittingStatus}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary text-fluid-micro py-2 px-5"
+                  disabled={isSubmittingStatus}
+                >
+                  {isSubmittingStatus ? 'Saving Transition...' : 'Log & Update Status'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

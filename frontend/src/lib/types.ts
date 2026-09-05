@@ -7,7 +7,7 @@ export type EquipmentCategory =
   | 'Outdoors & Sports'
   | 'Music & Instruments';
 
-export type AvailabilityStatus = 'AVAILABLE' | 'UNAVAILABLE' | 'BOOKED' | 'MAINTENANCE';
+export type AvailabilityStatus = 'AVAILABLE' | 'UNAVAILABLE' | 'BOOKED' | 'MAINTENANCE' | 'RETIRED';
 
 export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
@@ -28,6 +28,21 @@ export interface ConditionReport {
   aiConfidence?: number;
 }
 
+export interface StatusChangeRecord {
+  previousValue: string;
+  newValue: string;
+  reason: string;
+  changedAt: string;
+  changedBy?: string;
+  changedByName?: string;
+}
+
+export interface DateAvailability {
+  isAvailable: boolean;
+  conflictReason?: string;
+  conflictCount?: number;
+}
+
 export interface Equipment {
   id: string;
   name: string;
@@ -45,6 +60,8 @@ export interface Equipment {
   createdAt: string;
   depositAmount?: number;
   maxBorrowDays?: number;
+  statusHistory?: StatusChangeRecord[];
+  dateAvailability?: DateAvailability;
 }
 
 export interface Booking {

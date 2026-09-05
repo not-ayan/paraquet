@@ -39,6 +39,22 @@ export const INITIAL_EQUIPMENT: Equipment[] = [
     depositAmount: 0,
     maxBorrowDays: 4,
     createdAt: '2026-08-20T10:00:00Z',
+    statusHistory: [
+      {
+        previousValue: 'maintenance',
+        newValue: 'available',
+        reason: 'Optical sensor cleaning and lens mount alignment verified by lab steward.',
+        changedAt: '2026-09-01T14:30:00Z',
+        changedByName: 'Prof. Elena Rostova',
+      },
+      {
+        previousValue: 'available',
+        newValue: 'maintenance',
+        reason: 'Scheduled bi-weekly sensor dust inspection and firmware 4.0 update.',
+        changedAt: '2026-08-28T09:15:00Z',
+        changedByName: 'Prof. Elena Rostova',
+      },
+    ],
   },
   {
     id: 'eq-002',

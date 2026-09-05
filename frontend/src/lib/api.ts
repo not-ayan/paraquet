@@ -110,6 +110,8 @@ function adaptEquipment(raw: any): Equipment {
     createdAt: raw.createdAt || new Date().toISOString(),
     depositAmount: raw.depositAmount || 0,
     maxBorrowDays: raw.maxBorrowDays || 3,
+    statusHistory: raw.statusHistory || [],
+    dateAvailability: raw.dateAvailability || undefined,
   };
 }
 
@@ -296,12 +298,23 @@ export const apiClient = {
     return CommuneStore.updateUser(updates);
   },
 
-  // 2. Equipment Catalog
-  async getEquipment(filters?: { category?: string; location?: string; status?: string; search?: string }): Promise<Equipment[]> {
+  // 2. Equipment Catalog + Date Availability Checking
+  async getEquipment(filters?: { 
+    category?: string; 
+    location?: string; 
+    status?: string; 
+    search?: string;
+    startDate?: string;
+    endDate?: string;
+    availableOnly?: boolean;
+  }): Promise<Equipment[]> {
     try {
       const params = new URLSearchParams();
       if (filters?.category && filters.category !== 'All') params.set('category', filters.category);
       if (filters?.search) params.set('q', filters.search);
+      if (filters?.startDate) params.set('startDate', filters.startDate);
+      if (filters?.endDate) params.set('endDate', filters.endDate);
+      if (filters?.availableOnly) params.set('availableOnly', 'true');
       params.set('limit', '50');
 
       const res = await fetch(`${API_BASE}/equipment?${params.toString()}`);
@@ -614,5 +627,29 @@ export const apiClient = {
 
     const transformStr = transforms.join(',');
     return url.replace('/image/upload/', `/image/upload/${transformStr}/`);
+  },
+
+  // 7. WEB-C08: Equipment Status Change with History Tracking
+  async updateEquipmentStatus(id: string, status: string, reason: string): Promise<Equipment> {
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_BASE}/equipment/${id}/status`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ status, reason }),
+      });
+
+      if (res.ok) {
+        const raw = await res.json();
+        return adaptEquipment(raw);
+      }
+    } catch (err) {
+      console.warn('API updateEquipmentStatus fallback to store:', err);
+    }
+
+    // Fallback to local store
+    const local = CommuneStore.updateEquipmentStatus(id, status, reason);
+    if (local) return local;
+    throw new Error('Failed to update equipment status');
   },
 };

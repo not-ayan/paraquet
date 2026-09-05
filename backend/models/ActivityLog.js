@@ -20,6 +20,7 @@ const activityLogSchema = new Schema(
         'equipment_added',
         'equipment_approved',
         'equipment_rejected',
+        'equipment_status_changed',
       ],
       required: true,
     },

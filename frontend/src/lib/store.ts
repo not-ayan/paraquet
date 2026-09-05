@@ -45,7 +45,15 @@ export const CommuneStore = {
   },
 
   // --- EQUIPMENT ---
-  getAllEquipment(filters?: { category?: string; location?: string; status?: string; search?: string }): Equipment[] {
+  getAllEquipment(filters?: { 
+    category?: string; 
+    location?: string; 
+    status?: string; 
+    search?: string;
+    startDate?: string;
+    endDate?: string;
+    availableOnly?: boolean;
+  }): Equipment[] {
     let list = load<Equipment[]>(STORAGE_KEYS.EQUIPMENT, INITIAL_EQUIPMENT);
 
     if (filters?.search) {
@@ -66,6 +74,55 @@ export const CommuneStore = {
     if (filters?.location) {
       list = list.filter(e => e.location.toLowerCase().includes(filters.location!.toLowerCase()));
     }
+
+    // Evaluate date-wise availability if dates are provided
+    if (filters?.startDate && filters?.endDate) {
+      const reqStart = new Date(filters.startDate).getTime();
+      const reqEnd = new Date(filters.endDate).getTime();
+
+      if (!isNaN(reqStart) && !isNaN(reqEnd)) {
+        const allBookings = this.getAllBookings();
+
+        list = list.map(item => {
+          const itemConflicts = allBookings.filter(b => {
+            if (b.equipmentId !== item.id) return false;
+            if (b.status === 'REJECTED' || b.status === 'CANCELLED') return false;
+            const bStart = new Date(b.startDateTime).getTime();
+            const bEnd = new Date(b.endDateTime).getTime();
+            return bStart < reqEnd && bEnd > reqStart;
+          });
+
+          const isUnderMaintenance = item.availabilityStatus === 'MAINTENANCE' || (item as any).availability === 'maintenance';
+          const isRetired = item.availabilityStatus === 'RETIRED' || (item as any).availability === 'retired';
+          const hasConflict = itemConflicts.length > 0;
+          const isAvailable = !isUnderMaintenance && !isRetired && !hasConflict;
+
+          let conflictReason = undefined;
+          if (isUnderMaintenance) conflictReason = 'Under maintenance';
+          else if (isRetired) conflictReason = 'Equipment retired';
+          else if (hasConflict) {
+            const c = itemConflicts[0];
+            const s = new Date(c.startDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const e = new Date(c.endDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            conflictReason = `Booked (${s} – ${e})`;
+          }
+
+          return {
+            ...item,
+            dateAvailability: {
+              isAvailable,
+              conflictReason,
+              conflictCount: itemConflicts.length,
+            },
+          };
+        });
+
+        if (filters.availableOnly) {
+          list = list.filter(e => e.dateAvailability?.isAvailable);
+        }
+      }
+    }
+
     return list;
   },
 
@@ -315,6 +372,35 @@ export const CommuneStore = {
       entityName: `${list[idx].name} (Reason: ${reason || 'Not specified'})`,
     });
     return true;
+  },
+
+  // WEB-C08: Change History Status Update
+  updateEquipmentStatus(equipmentId: string, status: string, reason: string, authorName: string = 'Community Steward'): Equipment | null {
+    const list = load<Equipment[]>(STORAGE_KEYS.EQUIPMENT, INITIAL_EQUIPMENT);
+    const idx = list.findIndex(e => e.id === equipmentId);
+    if (idx === -1) return null;
+
+    const previousValue = (list[idx].availabilityStatus || 'AVAILABLE').toLowerCase();
+    const newValue = status.toLowerCase();
+
+    list[idx].availabilityStatus = newValue.toUpperCase() as any;
+
+    const historyRecord = {
+      previousValue,
+      newValue,
+      reason: reason.trim(),
+      changedAt: new Date().toISOString(),
+      changedByName: authorName,
+    };
+
+    if (!Array.isArray(list[idx].statusHistory)) {
+      list[idx].statusHistory = [];
+    }
+    list[idx].statusHistory!.unshift(historyRecord);
+
+    save(STORAGE_KEYS.EQUIPMENT, list);
+
+    return list[idx];
   },
 
   getPendingBookings(): Booking[] {
