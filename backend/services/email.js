@@ -1,6 +1,7 @@
+require('dotenv').config();
 const { Resend } = require('resend');
 
-const apiKey = process.env.RESEND_API_KEY;
+const apiKey = process.env.RESEND_API_KEY || 're_fallback';
 const fromEmail = process.env.RESEND_FROM_EMAIL || 'Tezpur University Equipment Desk <onboarding@resend.dev>';
 const portalUrl = process.env.PORTAL_URL || 'http://localhost:3000';
 
@@ -8,15 +9,16 @@ const resend = new Resend(apiKey);
 
 /**
  * Clean, branded transactional HTML email template wrapper
+ * Follows Paraquet studio aesthetic: #F5F5F3 canvas, #FFFFFF card, #111110 typography, #E5E5E0 borders
  */
 function renderEmailLayout({ title, badge, badgeColor, badgeBg, greeting, message, details = [], ctaText, ctaUrl, alertBox }) {
   const detailsHtml = details.length > 0 ? `
-    <table style="width: 100%; border-collapse: collapse; margin: 20px 0; background: #f8fafc; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 22px 0; background-color: #F8F8F6; border-radius: 16px; border: 1px solid #EAEAE5; overflow: hidden;">
       <tbody>
-        ${details.map(([label, value]) => `
-          <tr style="border-bottom: 1px solid #e2e8f0;">
-            <td style="padding: 10px 14px; font-size: 13px; color: #64748b; font-weight: 600; width: 35%;">${label}</td>
-            <td style="padding: 10px 14px; font-size: 13px; color: #0f172a; font-weight: 600;">${value}</td>
+        ${details.map(([label, value], idx) => `
+          <tr style="${idx !== details.length - 1 ? 'border-bottom: 1px solid #ECECE8;' : ''}">
+            <td style="padding: 12px 18px; font-size: 12px; color: #70706B; font-weight: 600; width: 38%; vertical-align: middle;">${label}</td>
+            <td style="padding: 12px 18px; font-size: 13px; color: #111110; font-weight: 700; vertical-align: middle;">${value}</td>
           </tr>
         `).join('')}
       </tbody>
@@ -24,14 +26,15 @@ function renderEmailLayout({ title, badge, badgeColor, badgeBg, greeting, messag
   ` : '';
 
   const alertHtml = alertBox ? `
-    <div style="margin: 18px 0; padding: 14px; border-radius: 8px; background: ${alertBox.bg || '#fff5f5'}; border: 1px solid ${alertBox.border || '#fecdd3'}; color: ${alertBox.color || '#9f1239'}; font-size: 13px; line-height: 1.5;">
-      <strong>${alertBox.title || 'Notice'}:</strong> ${alertBox.text}
+    <div style="margin: 20px 0; padding: 16px; border-radius: 14px; background-color: ${alertBox.bg || '#FFFBEB'}; border: 1px solid ${alertBox.border || '#FDE68A'}; color: ${alertBox.color || '#92400E'}; font-size: 13px; line-height: 1.55;">
+      <div style="font-weight: 700; margin-bottom: 4px; font-size: 13px;">${alertBox.title || 'Notice'}</div>
+      <div style="font-size: 12px; opacity: 0.95;">${alertBox.text}</div>
     </div>
   ` : '';
 
   const ctaHtml = ctaText && ctaUrl ? `
-    <div style="margin: 26px 0 10px 0; text-align: center;">
-      <a href="${ctaUrl}" style="background: #0f172a; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 700; display: inline-block;">
+    <div style="margin: 28px 0 12px 0; text-align: center;">
+      <a href="${ctaUrl}" style="background-color: #111110; color: #FFFFFF !important; padding: 13px 28px; border-radius: 9999px; text-decoration: none; font-size: 13px; font-weight: 700; display: inline-block; letter-spacing: -0.01em; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
         ${ctaText} &rarr;
       </a>
     </div>
@@ -39,50 +42,76 @@ function renderEmailLayout({ title, badge, badgeColor, badgeBg, greeting, messag
 
   return `
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <title>${title}</title>
       </head>
-      <body style="margin: 0; padding: 24px; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
-        <div style="max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 14px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
-          <!-- Header -->
-          <div style="background: #0f172a; padding: 22px 28px; display: flex; align-items: center; justify-content: space-between;">
-            <div style="color: #ffffff; font-size: 16px; font-weight: 800; letter-spacing: -0.02em;">
-              TEZPUR UNIVERSITY <span style="font-size: 11px; background: rgba(99, 102, 241, 0.3); color: #a5b4fc; padding: 2px 6px; border-radius: 4px; font-family: monospace;">CAMPUS LENDING</span>
-            </div>
-          </div>
+      <body style="margin: 0; padding: 32px 16px; background-color: #F5F5F3; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color: #111110; -webkit-font-smoothing: antialiased;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width: 560px; margin: 0 auto; background-color: #FFFFFF; border-radius: 24px; border: 1px solid #E5E5E0; overflow: hidden; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);">
+          
+          <!-- Header Bar -->
+          <tr>
+            <td style="padding: 24px 32px 20px 32px; border-bottom: 1px solid #F0F0EC;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="left" style="vertical-align: middle;">
+                    <span style="font-size: 20px; font-weight: 800; color: #111110; letter-spacing: -0.03em; text-decoration: none;">
+                      paraquet
+                    </span>
+                  </td>
+                  <td align="right" style="vertical-align: middle;">
+                    <span style="display: inline-block; padding: 3px 10px; border-radius: 9999px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; background-color: #F5F5F3; color: #70706B; border: 1px solid #E5E5E0;">
+                      Tezpur University
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
 
-          <!-- Body Content -->
-          <div style="padding: 30px 28px;">
-            ${badge ? `
-              <div style="margin-bottom: 12px;">
-                <span style="display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; background: ${badgeBg || '#e0f2fe'}; color: ${badgeColor || '#0369a1'};">
-                  ${badge}
-                </span>
-              </div>
-            ` : ''}
+          <!-- Main Body -->
+          <tr>
+            <td style="padding: 32px 32px 28px 32px;">
+              ${badge ? `
+                <div style="margin-bottom: 14px;">
+                  <span style="display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 11px; font-weight: 700; letter-spacing: 0.01em; background-color: ${badgeBg || '#E8F5EB'}; color: ${badgeColor || '#1B7A42'}; border: 1px solid rgba(0,0,0,0.05);">
+                    ${badge}
+                  </span>
+                </div>
+              ` : ''}
 
-            <h1 style="margin: 0 0 12px 0; font-size: 20px; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">
-              ${title}
-            </h1>
+              <h1 style="margin: 0 0 14px 0; font-size: 21px; font-weight: 800; color: #111110; letter-spacing: -0.025em; line-height: 1.25;">
+                ${title}
+              </h1>
 
-            ${greeting ? `<p style="margin: 0 0 12px 0; font-size: 14px; color: #475569;">Hello ${greeting},</p>` : ''}
+              ${greeting ? `<p style="margin: 0 0 10px 0; font-size: 14px; font-weight: 600; color: #40403C;">Hello ${greeting},</p>` : ''}
 
-            <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.55; color: #334155;">
-              ${message}
-            </p>
+              <p style="margin: 0 0 16px 0; font-size: 13.5px; line-height: 1.6; color: #555550;">
+                ${message}
+              </p>
 
-            ${alertHtml}
-            ${detailsHtml}
-            ${ctaHtml}
-          </div>
+              ${alertHtml}
+              ${detailsHtml}
+              ${ctaHtml}
+            </td>
+          </tr>
 
           <!-- Footer -->
-          <div style="padding: 16px 28px; background: #f8fafc; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; text-align: center;">
-            Automated notification from Tezpur University Equipment Lending Portal (Tezpur University, Assam) &bull; Please do not reply directly to this email.
-          </div>
-        </div>
+          <tr>
+            <td style="padding: 20px 32px; background-color: #FAFAF8; border-top: 1px solid #F0F0EC; font-size: 11px; line-height: 1.55; color: #8E8E88; text-align: center;">
+              <p style="margin: 0 0 6px 0; font-weight: 600; color: #70706B;">
+                Tezpur University Equipment Desk &bull; Napaam, Tezpur, Assam 784028
+              </p>
+              <p style="margin: 0; color: #A1A19A;">
+                Automated notification from the Paraquet campus network. Please do not reply directly to this email.
+              </p>
+            </td>
+          </tr>
+
+        </table>
       </body>
     </html>
   `;
@@ -229,7 +258,7 @@ async function sendBookingRejectedEmail({ user, equipment, booking, reason }) {
       ['Status', 'Rejected'],
     ],
     ctaText: 'Browse Available Equipment',
-    ctaUrl: `${portalUrl}/catalogue`,
+    ctaUrl: `${portalUrl}/equipment`,
   });
 
   return sendEmail({
