@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { apiFetch } from '../../../lib/api';
+import { IconAlertTriangle, IconCheckCircle, IconPackage } from '../../icons';
 
 export default function PendingEquipmentPage() {
   const { getToken } = useAuth();
@@ -65,14 +66,14 @@ export default function PendingEquipmentPage() {
 
       {error && (
         <div className="error-banner">
-          <span>⚠️</span>
+          <IconAlertTriangle />
           <span>{error}</span>
         </div>
       )}
 
       {items.length === 0 && !error && (
         <div className="empty-state">
-          <div className="empty-icon">✅</div>
+          <div className="empty-icon"><IconCheckCircle /></div>
           <div className="empty-title">All listings moderated</div>
           <div className="empty-text">No equipment postings are waiting for approval right now.</div>
         </div>
@@ -102,8 +103,8 @@ export default function PendingEquipmentPage() {
                           style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--border-subtle)' }}
                         />
                       ) : (
-                        <div style={{ width: 44, height: 44, borderRadius: 8, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>
-                          📦
+                        <div style={{ width: 44, height: 44, borderRadius: 8, background: 'var(--bg-surface-subtle)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', color: 'var(--text-muted)' }}>
+                          <IconPackage />
                         </div>
                       )}
                       <div>
@@ -113,7 +114,7 @@ export default function PendingEquipmentPage() {
                     </div>
                   </td>
                   <td>
-                    <span className="badge" style={{ background: '#f8fafc', color: 'var(--text-secondary)' }}>
+                    <span className="badge" style={{ background: 'var(--bg-surface-subtle)', color: 'var(--text-secondary)' }}>
                       {item.category || 'General'}
                     </span>
                   </td>
