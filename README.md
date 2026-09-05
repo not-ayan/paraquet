@@ -4,7 +4,7 @@
 
 **Repository**: [https://github.com/not-ayan/paraquet](https://github.com/not-ayan/paraquet)
 
-A full-stack, enterprise-grade equipment sharing, reservation, and asset custody management system built for the **Tezpur University** student and academic community in Assam. The platform eliminates equipment hoarding, automates reservation workflows, enforces loan durations, and maintains ironclad accountability through multi-point condition reporting, **Gemini 1.5 Flash AI multimodal vision inspection**, and real-time administrative custody tracking.
+A full-stack, enterprise-grade equipment sharing, reservation, and asset custody management system built for the **Tezpur University** student and academic community in Assam. The platform eliminates equipment hoarding, automates reservation workflows, enforces loan durations, and maintains ironclad accountability through multi-point condition reporting, **Gemini 3.5 Flash AI multimodal vision inspection**, and real-time administrative custody tracking.
 
 ---
 
@@ -29,7 +29,7 @@ The platform is designed as a decoupled, micro-service architecture consisting o
                ▼                  ▼                  ▼                   ▼
       ┌─────────────────┐ ┌───────────────┐ ┌─────────────────┐ ┌─────────────────────┐
       │  MongoDB Atlas  │ │ Cloudinary CDN│ │ Google Gemini AI│ │     Resend API      │
-      │ Mongoose Models │ │ Image Uploads │ │ 1.5 Flash Vision│ │Transactional Emails │
+      │ Mongoose Models │ │ Image Uploads │ │ 3.5 Flash       │ │Transactional Emails │
       └─────────────────┘ └───────────────┘ └─────────────────┘ └─────────────────────┘
 ```
 
@@ -79,14 +79,15 @@ Everything listed below was engineered **above and beyond** the required 48-hour
 
 | Extra Module | Category | What Was Added |
 |---|---|---|
-| **Resend Transactional Email Engine** | Notifications | Branded HTML notification delivery for reservation requests, approvals, rejections, pickup receipts, return summaries, and overdue warnings. |
-| **Gemini 1.5 Flash AI Multimodal Vision** | AI Inspection | Automatic visual inspection comparing baseline pickup photos against return photos, classifying cosmetic flaws vs actual structural damage with similarity scoring. |
+| **Student-Side Equipment Listing & Crowdsourcing** | Community & Peer-to-Peer | **The original specification only required admin-posted inventory.** We engineered an end-to-end community crowdsourcing flow allowing students and faculty to list their own equipment (`/equipment/new`) with photo uploads, specifications, and owner attribution, governed by an automated admin moderation queue (`submitted/` → `approved/`). |
 | **Dedicated Admin Command Center** | Administration | Standalone Next.js application (`/admin` on port 3001) with dark frosted-glass UI, Bento analytics, live moderation queues, and incident arbitration. |
+| **Resend Transactional Email Engine** | Notifications | Branded HTML notification delivery for reservation requests, approvals, rejections, pickup receipts, return summaries, and overdue warnings. |
+| **Gemini 3.5 Flash AI Multimodal Vision** | AI Inspection | Automatic visual inspection comparing baseline pickup photos against return photos, classifying cosmetic flaws vs actual structural damage with similarity scoring. |
 | **Automated Overdue Loan Daemon** | Background Service | Scheduled cron service continuously tracking active loans against due dates, calculating automated overdue fees (₹50/day), and alerting borrowers. |
 | **Cloudinary Media Pipeline** | Cloud Storage & CDN | Direct and multi-image uploads with automatic format/quality optimization and automated lifecycle promotion (`submitted/` → `approved/`). |
 | **Live Campus Custody Audit Stream** | Audit Trail & Compliance | Unified activity feed logging every equipment addition, booking transition, handover verification, and administrative override. |
 | **In-Memory Caching & Query Optimization** | Performance & Scalability | In-memory cache layer with prefix invalidation, MongoDB connection pooling, and lean query projection for sub-50ms API responses. |
-| **Local Currency Localization** | Localization | Full localization into Indian Rupees (`₹`) across loan penalties, damage assessments, and student receipts. |
+| **Currency & Campus Localization** | Localization | Full localization for Tezpur University, Assam with Indian Rupee (`₹`) overdue fees and damage assessments. |
 
 ---
 
@@ -114,7 +115,7 @@ The Admin Command Center is a standalone Next.js 14 portal purpose-built for lab
    - Instant one-click **"Approve"** (transitions booking to `approved` and sends confirmation email) or **"Reject"** (prompts for rejection reason and notifies the student).
 
 4. **AI Discrepancy & Flagged Damage Arbitration Desk (`app/bookings/flagged/page.js`)**:
-   - Renders incident cards for equipment returned with visual discrepancies detected by Gemini 1.5 Flash.
+   - Renders incident cards for equipment returned with visual discrepancies detected by Gemini 3.5 Flash.
    - **Similarity Score Metric**: Displays match percentage (e.g. `78% Visual Match`).
    - **Side-by-Side Evidence Inspection**: Directly compares baseline **Pickup Photo** against **Return Check-in Photo**.
    - **AI Analysis Breakdown**: Structured display separating **Cosmetic Flaws** (scuffs, light scratches) from **Actual / Structural Damage** (dents, cracks, missing components).
@@ -351,13 +352,13 @@ All endpoints are hosted on `http://localhost:4000/api` with full CORS origin re
 
 ---
 
-## Gemini 1.5 Flash AI Multimodal Vision Pipeline
+## Gemini 3.5 Flash AI Multimodal Vision Pipeline
 
-When equipment is returned, `backend/services/aiCondition.js` executes an automated multimodal comparison between the baseline pickup photos and return check-in photos using Google's **Gemini 1.5 Flash** model.
+When equipment is returned, `backend/services/aiCondition.js` executes an automated multimodal comparison between the baseline pickup photos and return check-in photos using Google's **Gemini 3.5 Flash** model.
 
 ```
 [Pickup Baseline Photo]  ──┐
-                           ├─► [Gemini 1.5 Flash Vision Model] ──► Structured JSON Discrepancy Report
+                           ├─► [Gemini 3.5 Flash Vision Model] ──► Structured JSON Discrepancy Report
 [Return Check-in Photo]  ──┘
 ```
 
