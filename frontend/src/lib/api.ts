@@ -91,14 +91,15 @@ function adaptEquipment(raw: any): Equipment {
 
   const conditionStatus = conditionMap[raw.condition] || 'GOOD';
   const approvalStatus = (raw.approvalStatus || 'approved').toUpperCase();
-  const availabilityStatus = (raw.availabilityStatus || 'available').toUpperCase();
+  const rawAvail = raw.effectiveAvailability || raw.availability || raw.availabilityStatus || 'available';
+  const availabilityStatus = rawAvail.toUpperCase();
 
   return {
     id,
-    name: raw.name || 'Campus Equipment',
-    description: raw.description || 'Quality campus equipment available for verified project borrowing.',
+    name: raw.name || 'Tezpur University Equipment',
+    description: raw.description || 'Quality equipment available for verified borrowing at Tezpur University, Assam.',
     category: raw.category || 'General',
-    location: raw.location || 'Central Campus Lab',
+    location: raw.location || 'Tezpur University, Assam',
     ownerId: raw.addedBy?._id || raw.addedBy || 'steward',
     ownerName: raw.addedBy?.name || 'Campus Steward',
     ownerAvatar: raw.addedBy?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
@@ -112,6 +113,7 @@ function adaptEquipment(raw: any): Equipment {
     maxBorrowDays: raw.maxBorrowDays || 3,
     statusHistory: raw.statusHistory || [],
     dateAvailability: raw.dateAvailability || undefined,
+    upcomingReservation: raw.upcomingReservation || undefined,
   };
 }
 
@@ -137,9 +139,13 @@ function adaptBooking(raw: any): Booking {
     type: 'PICKUP',
     condition: (raw.pickupCondition.condition || 'GOOD').toUpperCase() as any,
     photoUrl: raw.pickupCondition.photos[0],
+    photos: raw.pickupCondition.photos,
     notes: raw.pickupCondition.notes,
     reportedAt: raw.pickupCondition.recordedAt || new Date().toISOString(),
     reportedBy: raw.pickupCondition.recordedBy || 'borrower',
+    aiFlagged: raw.pickupCondition.aiFlagged,
+    aiSimilarityScore: raw.pickupCondition.aiSimilarityScore,
+    aiAnalysis: raw.pickupCondition.aiAnalysis,
   } : undefined;
 
   const returnReport: ConditionReport | undefined = raw.returnCondition?.photos?.length ? {
@@ -148,11 +154,15 @@ function adaptBooking(raw: any): Booking {
     type: 'RETURN',
     condition: (raw.returnCondition.condition || 'GOOD').toUpperCase() as any,
     photoUrl: raw.returnCondition.photos[0],
+    photos: raw.returnCondition.photos,
     notes: raw.returnCondition.notes,
     reportedAt: raw.returnCondition.recordedAt || new Date().toISOString(),
     reportedBy: raw.returnCondition.recordedBy || 'borrower',
     aiDamageDetected: raw.returnCondition.aiFlagged,
+    aiFlagged: raw.returnCondition.aiFlagged,
     aiConfidence: raw.returnCondition.aiSimilarityScore,
+    aiSimilarityScore: raw.returnCondition.aiSimilarityScore,
+    aiAnalysis: raw.returnCondition.aiAnalysis,
   } : undefined;
 
   const clientName = typeof window !== 'undefined' ? ((window as any).Clerk?.user?.fullName || (window as any).Clerk?.user?.firstName) : null;
@@ -172,10 +182,15 @@ function adaptBooking(raw: any): Booking {
     borrowerEmail,
     startDateTime: raw.startDate || raw.startDateTime || new Date().toISOString(),
     endDateTime: raw.endDate || raw.endDateTime || new Date().toISOString(),
-    purpose: raw.location || raw.purpose || 'Campus Project',
+    purpose: raw.location || raw.purpose || 'Tezpur University, Assam',
     status: (raw.status || 'PENDING').toUpperCase() as any,
     pickupReport,
     returnReport,
+    charges: raw.charges ? {
+      overdueFee: raw.charges.overdueFee || 0,
+      damageFee: raw.charges.damageFee || 0,
+      status: raw.charges.status || 'none',
+    } : undefined,
     rejectionReason: raw.rejectionReason || raw.cancelReason,
     createdAt: raw.createdAt || new Date().toISOString(),
   };
@@ -193,7 +208,7 @@ function adaptActivityLog(a: any): ActivityLog {
 
   let conditionReport: ActivityLog['conditionReport'] = undefined;
 
-  if (a.conditionReport && (a.conditionReport.photos?.length > 0 || a.conditionReport.condition || a.conditionReport.notes)) {
+  if (a.conditionReport && a.type !== 'condition_flagged' && (a.conditionReport.photos?.length > 0 || a.conditionReport.condition || a.conditionReport.notes)) {
     const rawCond = a.conditionReport;
     const gradeUpper = (rawCond.condition || 'GOOD').toUpperCase() as any;
     const typeUpper = (rawCond.type || (a.type?.includes('pickup') ? 'PICKUP' : 'RETURN')).toUpperCase() as any;
@@ -219,10 +234,11 @@ function adaptActivityLog(a: any): ActivityLog {
         notes: pc.notes || undefined,
         aiFlagged: Boolean(pc.aiFlagged),
         aiSimilarityScore: typeof pc.aiSimilarityScore === 'number' ? pc.aiSimilarityScore : undefined,
+        aiAnalysis: pc.aiAnalysis || undefined,
         recordedAt: pc.recordedAt || a.createdAt,
         recordedBy: userName,
       };
-    } else if ((a.type === 'return_recorded' || a.type === 'condition_flagged') && bk.returnCondition) {
+    } else if (a.type === 'return_recorded' && bk.returnCondition) {
       const rc = bk.returnCondition;
       const grade = (rc.condition || (rc.aiFlagged ? 'DAMAGED' : 'GOOD')).toUpperCase() as any;
       conditionReport = {
@@ -232,6 +248,7 @@ function adaptActivityLog(a: any): ActivityLog {
         notes: rc.notes || undefined,
         aiFlagged: Boolean(rc.aiFlagged),
         aiSimilarityScore: typeof rc.aiSimilarityScore === 'number' ? rc.aiSimilarityScore : undefined,
+        aiAnalysis: rc.aiAnalysis || undefined,
         recordedAt: rc.recordedAt || a.createdAt,
         recordedBy: userName,
       };
@@ -249,6 +266,8 @@ function adaptActivityLog(a: any): ActivityLog {
     entityName,
     equipmentImage,
     equipmentCategory,
+    type: a.type,
+    bookingId: bk?._id || (typeof a.booking === 'string' ? a.booking : undefined),
     message: a.message || undefined,
     createdAt: a.createdAt || new Date().toISOString(),
     conditionReport,
@@ -266,9 +285,9 @@ export const apiClient = {
         return {
           clerkId: data.clerkId || 'user',
           name: data.name || 'Verified Student',
-          email: data.email || 'student@campus.edu',
+          email: data.email || 'student@tezu.ac.in',
           phone: data.phone,
-          department: data.department || 'Creative Media & Arts',
+          department: data.department || 'Tezpur University, Assam',
           studentId: data.studentId || '2026-STU-8821',
           avatarUrl: data.avatarUrl,
           borrowingCount: 0,
@@ -437,6 +456,12 @@ export const apiClient = {
   }): Promise<{ success: boolean; booking?: Booking; error?: string }> {
     try {
       const headers = await getAuthHeaders();
+      if (data.borrowerName && !headers['x-user-name']) {
+        headers['x-user-name'] = encodeURIComponent(data.borrowerName);
+      }
+      if (data.borrowerEmail && !headers['x-user-email']) {
+        headers['x-user-email'] = encodeURIComponent(data.borrowerEmail);
+      }
       const payload = {
         equipmentId: data.equipmentId,
         startDate: data.startDateTime,

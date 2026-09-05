@@ -60,6 +60,48 @@ export default function AvailabilityCalendar({
   const month = viewDate.getMonth();
   const monthName = viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
+  // Helper to add days to YYYY-MM-DD
+  const addDays = (baseStr: string, days: number): string => {
+    const [y, m, d] = baseStr.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() + days);
+    const endY = dt.getFullYear();
+    const endM = String(dt.getMonth() + 1).padStart(2, '0');
+    const endD = String(dt.getDate()).padStart(2, '0');
+    return `${endY}-${endM}-${endD}`;
+  };
+
+  const calculatedDays = useMemo(() => {
+    if (!selectedStartDate || !selectedEndDate) return Math.min(3, maxBorrowDays);
+    const [y1, m1, d1] = selectedStartDate.split('-').map(Number);
+    const [y2, m2, d2] = selectedEndDate.split('-').map(Number);
+    const diff = Math.round((new Date(y2, m2 - 1, d2).getTime() - new Date(y1, m1 - 1, d1).getTime()) / (1000 * 60 * 60 * 24));
+    if (diff < 0) return 1;
+    return diff + 1;
+  }, [selectedStartDate, selectedEndDate, maxBorrowDays]);
+
+  const [selectedDuration, setSelectedDuration] = useState<number>(() => Math.min(3, maxBorrowDays));
+
+  // Sync selectedDuration when calculatedDays or maxBorrowDays changes
+  React.useEffect(() => {
+    if (calculatedDays > 0) {
+      setSelectedDuration(calculatedDays);
+    }
+  }, [calculatedDays]);
+
+  const durationOptions = useMemo(() => {
+    const count = Math.max(1, Math.min(14, maxBorrowDays));
+    return Array.from({ length: count }, (_, i) => i + 1);
+  }, [maxBorrowDays]);
+
+  const handleDurationSelect = (days: number) => {
+    setSelectedDuration(days);
+    if (selectedStartDate && onSelectDateRange) {
+      const newEnd = addDays(selectedStartDate, Math.max(0, days - 1));
+      onSelectDateRange(selectedStartDate, newEnd);
+    }
+  };
+
   const prevMonth = () => {
     setViewDate(new Date(year, month - 1, 1));
   };
@@ -176,31 +218,9 @@ export default function AvailabilityCalendar({
       return;
     }
 
-    const [y, m, d] = day.dateStr.split('-').map(Number);
-
-    if (!selectedStartDate || (selectedStartDate && selectedEndDate && selectedStartDate !== selectedEndDate)) {
-      const dt = new Date(y, m - 1, d);
-      dt.setDate(dt.getDate() + Math.min(2, maxBorrowDays));
-      const endY = dt.getFullYear();
-      const endM = String(dt.getMonth() + 1).padStart(2, '0');
-      const endD = String(dt.getDate()).padStart(2, '0');
-      const endStr = `${endY}-${endM}-${endD}`;
-      onSelectDateRange(day.dateStr, endStr);
-    } else if (selectedStartDate && !selectedEndDate) {
-      if (day.dateStr < selectedStartDate) {
-        onSelectDateRange(day.dateStr, selectedStartDate);
-      } else {
-        onSelectDateRange(selectedStartDate, day.dateStr);
-      }
-    } else {
-      const dt = new Date(y, m - 1, d);
-      dt.setDate(dt.getDate() + Math.min(2, maxBorrowDays));
-      const endY = dt.getFullYear();
-      const endM = String(dt.getMonth() + 1).padStart(2, '0');
-      const endD = String(dt.getDate()).padStart(2, '0');
-      const endStr = `${endY}-${endM}-${endD}`;
-      onSelectDateRange(day.dateStr, endStr);
-    }
+    const duration = Math.min(selectedDuration || 1, maxBorrowDays);
+    const endStr = addDays(day.dateStr, Math.max(0, duration - 1));
+    onSelectDateRange(day.dateStr, endStr);
   };
 
   const relevantBookings = useMemo(() => {
@@ -247,6 +267,44 @@ export default function AvailabilityCalendar({
           >
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
+        </div>
+      </div>
+
+      {/* Loan Duration Day Picker */}
+      <div className="bg-[#F8F8F6] border border-[#E5E5E0] p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-[#111110] flex-shrink-0" />
+            <span className="text-xs font-bold text-[#111110]">
+              Loan Duration:
+            </span>
+            <span className="text-[11px] font-semibold text-[#111110] bg-[#EDEDEA] px-2.5 py-0.5 rounded-full border border-[#E5E5E0]">
+              {selectedDuration} {selectedDuration === 1 ? 'day' : 'days'} selected
+            </span>
+          </div>
+          <p className="text-[11px] text-[#70706B]">
+            Maximum allowable loan for this item: <strong>{maxBorrowDays} {maxBorrowDays === 1 ? 'day' : 'days'}</strong>
+          </p>
+        </div>
+
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {durationOptions.map((days) => {
+            const isSelected = selectedDuration === days;
+            return (
+              <button
+                key={days}
+                type="button"
+                onClick={() => handleDurationSelect(days)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 border ${
+                  isSelected
+                    ? 'bg-[#111110] text-white border-[#111110] shadow-xs'
+                    : 'bg-white text-[#40403C] hover:bg-[#EDEDEA] border-[#E5E5E0]'
+                }`}
+              >
+                {days} {days === 1 ? 'Day' : 'Days'}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -339,7 +397,13 @@ export default function AvailabilityCalendar({
                   )}
                   {day.isSelected && (
                     <span className="text-[9px] sm:text-[10px] block truncate text-white/90 font-bold">
-                      {day.isRangeStart ? 'Pickup' : day.isRangeEnd ? 'Return' : 'Loan'}
+                      {day.isRangeStart && day.isRangeEnd
+                        ? 'Pickup & Return'
+                        : day.isRangeStart
+                        ? 'Pickup'
+                        : day.isRangeEnd
+                        ? 'Return'
+                        : 'Loan'}
                     </span>
                   )}
                 </div>

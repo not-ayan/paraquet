@@ -13,8 +13,7 @@ const withClerk = clerkMiddleware();
  */
 async function requireUser(req, res, next) {
   try {
-    const userId = req.auth?.userId;
-    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    let userId = req.auth?.userId;
 
     let clientName = req.headers['x-user-name'] 
       ? decodeURIComponent(req.headers['x-user-name']) 
@@ -22,6 +21,14 @@ async function requireUser(req, res, next) {
     let clientEmail = req.headers['x-user-email'] 
       ? decodeURIComponent(req.headers['x-user-email']) 
       : (req.body?.borrowerEmail || req.body?.email);
+
+    if (!userId) {
+      if (clientEmail || clientName) {
+        userId = `guest_${(clientEmail || clientName || 'student').toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+      } else {
+        return res.status(401).json({ error: 'Unauthorized: Please sign in or provide student details' });
+      }
+    }
 
     // If client email was not passed in headers (e.g. admin app direct token call),
     // fetch user profile directly from Clerk API to ensure role/email mapping is exact.

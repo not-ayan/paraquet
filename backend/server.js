@@ -24,17 +24,13 @@ const allowedOrigins = [
 app.use(compression());
 app.use(cors({
   origin: (origin, callback) => {
-    // allow requests with no origin (like mobile apps, curl, Postman)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin) || /^http:\/\/localhost:\d+$/.test(origin) || /^http:\/\/127\.0\.0\.1:\d+$/.test(origin)) {
-      return callback(null, true);
-    }
-    callback(new Error(`Origin ${origin} not allowed by CORS`));
+    // Reflect origin if present, or allow non-browser clients
+    callback(null, origin || true);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-clerk-auth-token', 'x-user-name', 'x-user-email'],
 }));
+app.options('*', cors());
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 app.use(withClerk); // attaches req.auth on every request when a session token is present
@@ -46,7 +42,18 @@ app.use('/api/activity', activityRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/upload', uploadRoutes);
 
-app.get('/health', (req, res) => res.json({ ok: true, timestamp: new Date().toISOString() }));
+const mongoose = require('mongoose');
+
+app.get('/health', (req, res) => {
+  const stateMap = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
+  const readyState = mongoose.connection.readyState;
+  res.json({
+    ok: readyState === 1,
+    db: stateMap[readyState] || 'unknown',
+    readyState,
+    timestamp: new Date().toISOString(),
+  });
+});
 
 // Centralized error handler — every route's catch(next) lands here.
 app.use((err, req, res, next) => {
@@ -55,11 +62,25 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 4000;
+const { checkAndNotifyOverdueBookings } = require('./services/overdue');
 
 app.listen(PORT, async () => {
   console.log(`API running on :${PORT}`);
   try {
     await connectDB();
+
+    // Run an initial overdue loans sweep 10 seconds after boot, then check hourly
+    setTimeout(() => {
+      checkAndNotifyOverdueBookings().catch((err) =>
+        console.warn('[Overdue Cron] Startup check error:', err.message)
+      );
+    }, 10000);
+
+    setInterval(() => {
+      checkAndNotifyOverdueBookings().catch((err) =>
+        console.warn('[Overdue Cron] Periodic check error:', err.message)
+      );
+    }, 60 * 60 * 1000);
   } catch (err) {
     console.error('Initial DB connection attempt failed:', err.message);
   }

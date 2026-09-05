@@ -41,6 +41,7 @@ const equipmentSchema = new Schema(
     },
 
     addedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    maxBorrowDays: { type: Number, default: 3, min: 1, max: 30 },
 
     /**
      * WEB-C08: Change History for Equipment Availability/Maintenance status.

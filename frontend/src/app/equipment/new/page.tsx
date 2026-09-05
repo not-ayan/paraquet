@@ -23,7 +23,7 @@ export default function NewEquipmentPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<EquipmentCategory>('Cameras & Video');
-  const [location, setLocation] = useState('Central Media Lab (Room 201)');
+  const [location, setLocation] = useState('Tezpur University, Assam (Central Lab)');
   const [currentCondition, setCurrentCondition] = useState<'EXCELLENT' | 'GOOD' | 'FAIR'>('EXCELLENT');
   const [maxBorrowDays, setMaxBorrowDays] = useState(3);
   
@@ -141,10 +141,10 @@ export default function NewEquipmentPage() {
           Contribution
         </span>
         <h1 className="text-2xl sm:text-4xl font-extrabold text-[#111110] tracking-tight">
-          List Campus Equipment
+          List Equipment — Tezpur University
         </h1>
         <p className="text-xs sm:text-sm text-[#70706B]">
-          Make idle maker tools, cameras, and audio arrays available to verified campus students and creators.
+          Make idle maker tools, cameras, and audio arrays available to verified Tezpur University students and creators in Assam.
         </p>
       </div>
 
@@ -214,7 +214,7 @@ export default function NewEquipmentPage() {
                 required
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                placeholder="e.g. Media Lab Room 204"
+                placeholder="e.g. Tezpur University, Assam (Dept of CSE / Central Lab)"
                 className="input-paraquet rounded-2xl h-[46px] text-xs sm:text-sm font-semibold"
               />
             </div>

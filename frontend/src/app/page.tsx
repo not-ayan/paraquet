@@ -54,11 +54,11 @@ export default function HomePage() {
   const services = [
     {
       title: 'Equipment sharing',
-      description: 'Find, reserve, and borrow high-demand hardware from fellow students and campus departments with verified custody logs.',
+      description: 'Find, reserve, and borrow high-demand hardware from fellow students and departments at Tezpur University, Assam with verified custody logs.',
     },
     {
       title: 'Pickup and exchange',
-      description: 'Convenient peer-to-peer exchange hubs located at central campus libraries, maker spaces, and department labs.',
+      description: 'Convenient peer-to-peer exchange hubs located across Tezpur University, Assam (Central Library, Department Labs, and Maker Spaces).',
     },
     {
       title: 'Protection & insurance',
@@ -73,7 +73,7 @@ export default function HomePage() {
   const faqs = [
     {
       question: 'How do I borrow equipment?',
-      answer: 'Simply browse the catalogue, choose your desired dates with our real-time availability calendar, and submit a reservation request. Once approved by the owner or steward, meet at the campus hub for pickup.',
+      answer: 'Simply browse the catalogue, choose your desired dates with our real-time availability calendar, and submit a reservation request. Once approved by the owner or steward, meet at Tezpur University, Assam for pickup.',
     },
     {
       question: 'How does custody verification work?',
@@ -88,8 +88,8 @@ export default function HomePage() {
       answer: 'Most gear can be borrowed for 1 to 7 days. If you need an extension for an ongoing project, you can request it through your dashboard before the return deadline.',
     },
     {
-      question: 'Who can use Paraquet on campus?',
-      answer: 'All enrolled students, researchers, lab technicians, and faculty members with a valid university email are eligible to join, borrow, and list equipment.',
+      question: 'Who can use Paraquet at Tezpur University?',
+      answer: 'All enrolled students, researchers, lab technicians, and faculty members at Tezpur University, Assam with a valid university email (tezu.ac.in / tezu.ernet.in) are eligible to join, borrow, and list equipment.',
     },
   ];
 
@@ -116,7 +116,7 @@ export default function HomePage() {
             </h1>
 
             <p className="text-[#70706B] text-sm sm:text-base leading-relaxed max-w-lg">
-              High-end cameras, maker tools, audio gear, and research hardware shared across campus departments.
+              High-end cameras, maker tools, audio gear, and research hardware shared across Tezpur University departments in Assam.
             </p>
 
             <div className="flex flex-wrap items-center gap-3 pt-2">
@@ -250,7 +250,7 @@ export default function HomePage() {
             <span className="text-2xl sm:text-3xl font-extrabold text-[#111110] block">
               {equipmentCount}+
             </span>
-            <span className="text-xs text-[#70706B] font-medium">Active Campus Items</span>
+            <span className="text-xs text-[#70706B] font-medium">Tezpur University Items</span>
           </div>
           <div>
             <span className="text-2xl sm:text-3xl font-extrabold text-[#111110] block">
@@ -266,7 +266,7 @@ export default function HomePage() {
           </div>
           <div>
             <span className="text-2xl sm:text-3xl font-extrabold text-[#111110] block">
-              $18.4k
+              ₹15.4L
             </span>
             <span className="text-xs text-[#70706B] font-medium">Student Savings</span>
           </div>
@@ -292,7 +292,7 @@ export default function HomePage() {
                 we exist?
               </h2>
               <p className="text-xs sm:text-sm text-[#70706B] leading-relaxed pt-1">
-                At our core, we exist to unlock value from unused campus gear and build sustainable student collaboration. Our mission is to democratize equipment access across engineering, arts, and science departments.
+                At our core, we exist to unlock value from unused equipment and build sustainable student collaboration at Tezpur University, Assam. Our mission is to democratize equipment access across engineering, arts, and science departments.
               </p>
             </div>
 
@@ -373,7 +373,7 @@ export default function HomePage() {
                 Our Service
               </span>
               <p className="text-xs text-[#70706B] leading-relaxed">
-                Our campus equipment platform makes borrowing gear painless, informal, and peer-to-peer while maintaining complete safety and accountability.
+                Our platform makes borrowing gear painless, informal, and peer-to-peer across Tezpur University, Assam while maintaining complete safety and accountability.
               </p>
 
               {/* Service Accordion */}
@@ -425,7 +425,7 @@ export default function HomePage() {
               Explore what&apos;s available
             </h2>
             <p className="text-xs sm:text-sm text-[#70706B]">
-              Real-time verified equipment from campus departments and student labs ready for reservation.
+              Real-time verified equipment from Tezpur University departments and student labs ready for reservation.
             </p>
           </div>
 
@@ -522,7 +522,7 @@ export default function HomePage() {
                         {item.name}
                       </h3>
                       <span className="text-[10px] sm:text-[11px] text-[#70706B] truncate block">
-                        {item.location || 'Central Campus Lab'}
+                        {item.location || 'Tezpur University, Assam'}
                       </span>
                     </div>
 
@@ -622,7 +622,7 @@ export default function HomePage() {
                   <div className="h-4 bg-[#F2F2EE] rounded-md w-3/4" />
                   <div className="flex items-center gap-1.5 pt-1">
                     <span className="px-1.5 py-0.5 bg-[#EAEAE5] rounded text-[8px] text-[#70706B]">Category</span>
-                    <span className="px-1.5 py-0.5 bg-[#EAEAE5] rounded text-[8px] text-[#70706B]">Campus Lab</span>
+                    <span className="px-1.5 py-0.5 bg-[#EAEAE5] rounded text-[8px] text-[#70706B]">Tezpur University, Assam</span>
                   </div>
                 </div>
                 <Sparkles className="absolute top-2 right-3 w-4 h-4 text-[#A1A19A]" />
@@ -696,10 +696,10 @@ export default function HomePage() {
 
             <div className="pt-2">
               <Link
-                href="mailto:support@paraquet.campus.edu"
+                href="mailto:support@tezu.ac.in"
                 className="bg-white hover:bg-[#F9F9F8] text-[#111110] border border-[#DCDCD6] hover:border-[#111110] px-5 py-2.5 rounded-full text-xs font-bold inline-flex items-center gap-1.5 transition-all shadow-2xs"
               >
-                <span>View Help Center</span>
+                <span>Tezpur University Help Center</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>

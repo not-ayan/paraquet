@@ -18,6 +18,20 @@ const conditionRecordSchema = new Schema(
     // photos exist — compares the two, not a single photo.
     aiSimilarityScore: { type: Number, min: 0, max: 1 },
     aiFlagged: { type: Boolean, default: false },
+    aiAnalysis: {
+      detailedSummary: { type: String },
+      conditionRating: { type: String },
+      cosmeticFlaws: [{ type: String }],
+      actualDamage: [{ type: String }],
+      damageType: {
+        type: String,
+        enum: ['none', 'cosmetic', 'structural', 'both'],
+        default: 'none',
+      },
+      damageDetected: { type: Boolean, default: false },
+      detailedDiscrepancyReport: { type: String },
+      recommendedAction: { type: String },
+    },
     adminReviewed: { type: Boolean, default: false },
     recordedBy: { type: Schema.Types.ObjectId, ref: 'User' },
     recordedAt: { type: Date, default: Date.now },

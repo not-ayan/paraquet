@@ -31,7 +31,7 @@ export default function Footer() {
                 </span>
               </Link>
               <p className="text-sm text-[#70706B] leading-relaxed max-w-sm">
-                Borrow. Share. Build together. A community platform for sharing equipment, electronics, and tools across campus.
+                Borrow. Share. Build together. A community equipment lending and hardware sharing platform for Tezpur University, Assam.
               </p>
               
               {/* Social Icons */}
@@ -97,7 +97,7 @@ export default function Footer() {
                 <li><Link href="#guidelines" className="hover:text-[#111110] transition-colors">Guidelines</Link></li>
                 <li><Link href="#trust" className="hover:text-[#111110] transition-colors">Safety &amp; Trust</Link></li>
                 <li><Link href="#sustainability" className="hover:text-[#111110] transition-colors">Sustainability</Link></li>
-                <li><Link href="mailto:support@paraquet.campus.edu" className="hover:text-[#111110] transition-colors">Contact Us</Link></li>
+                <li><Link href="mailto:support@tezu.ac.in" className="hover:text-[#111110] transition-colors">Contact Us (Tezpur University)</Link></li>
               </ul>
             </div>
 
@@ -124,7 +124,7 @@ export default function Footer() {
 
               {subscribed ? (
                 <div className="p-3 bg-[#E8F5EB] border border-[#A7F3D0] rounded-xl text-xs font-semibold text-[#1B7A42]">
-                  ✓ Thanks! You are on the campus loop.
+                  ✓ Thanks! You are on the Tezpur University equipment loop.
                 </div>
               ) : (
                 <form onSubmit={handleSubscribe} className="space-y-2">
@@ -149,7 +149,7 @@ export default function Footer() {
 
               <div className="pt-2 flex items-center gap-1.5 text-[11px] text-[#70706B]">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#2D4A3E]" />
-                <span>A greener, more resourceful campus.</span>
+                <span>Tezpur University, Napaam, Tezpur, Assam 784028</span>
               </div>
             </div>
 

@@ -171,10 +171,10 @@ export default function EquipmentCataloguePage() {
             Catalogue
           </span>
           <h1 className="text-2xl sm:text-4xl font-extrabold text-[#111110] tracking-tight">
-            Campus Equipment Directory
+            Tezpur University Equipment Directory
           </h1>
           <p className="text-xs sm:text-sm text-[#70706B] max-w-xl">
-            Search, filter, and inspect real-time date availability for verified hardware shared across university departments.
+            Search, filter, and inspect real-time date availability for verified hardware shared across Tezpur University departments in Assam.
           </p>
         </div>
 
@@ -329,7 +329,7 @@ export default function EquipmentCataloguePage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search equipment by name, keywords, or campus lab..."
+              placeholder="Search equipment by name, keywords, or Tezpur University lab..."
               className="input-paraquet pl-10 pr-4 h-[46px] rounded-2xl text-xs sm:text-sm font-medium"
             />
           </div>

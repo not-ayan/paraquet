@@ -3,7 +3,13 @@ const { User, Equipment, Booking, ActivityLog } = require('../models');
 const { requireUser, requireAdmin } = require('../middleware/auth');
 const { moveToApproved } = require('../services/cloudinary');
 const memoryCache = require('../lib/cache');
- 
+const {
+  sendBookingApprovedEmail,
+  sendBookingRejectedEmail,
+  sendConditionResolvedEmail,
+} = require('../services/email');
+const { checkAndNotifyOverdueBookings } = require('../services/overdue');
+
 const router = express.Router();
  
 router.use(requireUser, requireAdmin);
@@ -175,16 +181,31 @@ router.patch('/bookings/:id/approve', async (req, res, next) => {
  
     booking.status = 'approved';
     await booking.save();
+    await booking.populate('equipment user');
 
-    await Equipment.findByIdAndUpdate(booking.equipment, { availability: 'booked' });
+    const now = new Date();
+    const equipId = booking.equipment?._id || booking.equipment;
+    if (new Date(booking.startDate) <= now && new Date(booking.endDate) >= now) {
+      await Equipment.findByIdAndUpdate(equipId, { availability: 'booked' });
+    } else {
+      await Equipment.findByIdAndUpdate(equipId, { availability: 'available' });
+    }
 
     await ActivityLog.create({
-      user: booking.user,
+      user: booking.user?._id || booking.user,
       type: 'booking_approved',
       booking: booking._id,
-      equipment: booking.equipment,
+      equipment: equipId,
       message: 'Booking approved',
     });
+
+    // Fire-and-forget approval confirmation email to borrower
+    sendBookingApprovedEmail({
+      user: booking.user,
+      equipment: booking.equipment,
+      booking,
+    }).catch((err) => console.warn('[Email] Error sending approval email:', err.message));
+
     memoryCache.clearPrefix('equipment:');
     res.json(booking);
   } catch (err) {
@@ -202,15 +223,27 @@ router.patch('/bookings/:id/reject', async (req, res, next) => {
     }
  
     booking.status = 'rejected';
+    booking.cancelReason = req.body?.reason;
     await booking.save();
- 
+    await booking.populate('equipment user');
+
+    const equipId = booking.equipment?._id || booking.equipment;
     await ActivityLog.create({
-      user: booking.user,
+      user: booking.user?._id || booking.user,
       type: 'booking_rejected',
       booking: booking._id,
-      equipment: booking.equipment,
-      message: 'Booking rejected',
+      equipment: equipId,
+      message: req.body?.reason ? `Booking rejected: ${req.body.reason}` : 'Booking rejected',
     });
+
+    // Fire-and-forget rejection notice email to borrower
+    sendBookingRejectedEmail({
+      user: booking.user,
+      equipment: booking.equipment,
+      booking,
+      reason: req.body?.reason,
+    }).catch((err) => console.warn('[Email] Error sending rejection email:', err.message));
+
     memoryCache.clearPrefix('equipment:');
     res.json(booking);
   } catch (err) {
@@ -261,16 +294,37 @@ router.patch('/bookings/:id/resolve-condition', async (req, res, next) => {
       booking.charges.status = 'pending';
     }
     await booking.save();
- 
+    await booking.populate('equipment user');
+
+    const equipId = booking.equipment?._id || booking.equipment;
     await ActivityLog.create({
-      user: booking.user,
+      user: booking.user?._id || booking.user,
       type: 'condition_flagged',
       booking: booking._id,
-      equipment: booking.equipment,
-      message: damageFee ? `Admin applied a damage fee of ${damageFee}` : 'Admin cleared flagged condition',
+      equipment: equipId,
+      message: damageFee ? `Admin applied a damage fee of ₹${damageFee}` : 'Admin cleared flagged condition',
     });
- 
+
+    // Fire-and-forget condition resolution email to borrower
+    sendConditionResolvedEmail({
+      user: booking.user,
+      equipment: booking.equipment,
+      booking,
+      damageFee: Number(damageFee || 0),
+      note,
+    }).catch((err) => console.warn('[Email] Error sending condition resolved email:', err.message));
+
     res.json(booking);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/admin/bookings/check-overdue — sweep overdue loans past endDate and email borrowers
+router.post('/bookings/check-overdue', async (req, res, next) => {
+  try {
+    const report = await checkAndNotifyOverdueBookings();
+    res.json({ success: true, ...report });
   } catch (err) {
     next(err);
   }

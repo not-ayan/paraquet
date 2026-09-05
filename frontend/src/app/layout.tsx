@@ -13,8 +13,8 @@ const caveat = Caveat({
 });
 
 export const metadata: Metadata = {
-  title: 'Paraquet — Campus Equipment Sharing & Lending Platform',
-  description: 'A contemporary community equipment lending and booking platform. Borrow and share cameras, maker tools, sound gear, and research hardware.',
+  title: 'Paraquet — Tezpur University Equipment Sharing & Lending Platform',
+  description: 'A contemporary community equipment lending and booking platform for Tezpur University, Assam. Borrow and share cameras, maker tools, sound gear, and research hardware.',
 };
 
 export default function RootLayout({

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -17,6 +17,7 @@ import {
   History,
   ArrowRight,
   Wrench,
+  Calendar,
 } from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
 import { apiClient } from '@/lib/api';
@@ -80,7 +81,7 @@ export default function EquipmentDetailPage() {
   const [startTime, setStartTime] = useState('10:00');
   const [endDate, setEndDate] = useState(() => {
     const d = new Date();
-    d.setDate(d.getDate() + 3);
+    d.setDate(d.getDate() + 2);
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
@@ -88,10 +89,55 @@ export default function EquipmentDetailPage() {
   });
   const [endTime, setEndTime] = useState('18:00');
   const [purpose, setPurpose] = useState('');
+  const [guestName, setGuestName] = useState('Student Borrower');
+  const [guestEmail, setGuestEmail] = useState('student@tezu.ac.in');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Helper to add days to YYYY-MM-DD string
+  const addDaysToDateStr = (baseStr: string, days: number): string => {
+    const [y, m, d] = baseStr.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() + days);
+    const endY = dt.getFullYear();
+    const endM = String(dt.getMonth() + 1).padStart(2, '0');
+    const endD = String(dt.getDate()).padStart(2, '0');
+    return `${endY}-${endM}-${endD}`;
+  };
+
+  const maxBorrowDays = equipment?.maxBorrowDays || 3;
+
+  const currentDurationDays = useMemo(() => {
+    if (!startDate || !endDate) return 1;
+    const [y1, m1, d1] = startDate.split('-').map(Number);
+    const [y2, m2, d2] = endDate.split('-').map(Number);
+    const diff = Math.round((new Date(y2, m2 - 1, d2).getTime() - new Date(y1, m1 - 1, d1).getTime()) / (1000 * 60 * 60 * 24));
+    if (diff < 0) return 0;
+    return diff + 1;
+  }, [startDate, endDate]);
+
+  const isDurationExceeded = currentDurationDays > maxBorrowDays;
+
+  const handleSelectDuration = (days: number) => {
+    setEndDate(addDaysToDateStr(startDate, Math.max(0, days - 1)));
+  };
+
+  const conditionReports = useMemo(() => {
+    const valid = equipmentActivity.filter(a => Boolean(a.conditionReport) && a.type !== 'condition_flagged');
+    const seen = new Set<string>();
+    const deduped: typeof valid = [];
+    for (const act of valid) {
+      const bId = act.bookingId || (act as any).booking?._id || (act as any).booking || act.id;
+      const key = `${bId}-${act.conditionReport?.type}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduped.push(act);
+      }
+    }
+    return deduped;
+  }, [equipmentActivity]);
 
   useEffect(() => {
     if (id) {
@@ -161,19 +207,32 @@ export default function EquipmentDetailPage() {
 
   const now = new Date();
 
-  // Active, approved, or overdue bookings
-  const activeOrApprovedBooking = equipmentBookings.find(b => 
-    b.status === 'ACTIVE' || b.status === 'APPROVED' || b.status === 'OVERDUE'
-  );
+  // Booking physically in custody today (checked out or approved for today)
+  const currentlyInCustodyBooking = equipmentBookings.find(b => {
+    if (b.status === 'OVERDUE') return true;
+    if (b.status === 'ACTIVE') return true;
+    if (b.status === 'APPROVED') {
+      const s = new Date(b.startDateTime);
+      const e = new Date(b.endDateTime);
+      return s <= now && e >= now;
+    }
+    return false;
+  });
+
+  // Future scheduled bookings (e.g. booked for Sep 12 when today is Sep 5)
+  const upcomingBookings = equipmentBookings
+    .filter(b => (b.status === 'APPROVED' || b.status === 'PENDING') && new Date(b.startDateTime) > now)
+    .sort((a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime());
+  const nextUpcomingBooking = upcomingBookings[0] || null;
 
   const isOverdue = Boolean(
-    activeOrApprovedBooking && (
-      activeOrApprovedBooking.status === 'OVERDUE' ||
-      (activeOrApprovedBooking.status === 'ACTIVE' && new Date(activeOrApprovedBooking.endDateTime) < now)
+    currentlyInCustodyBooking && (
+      currentlyInCustodyBooking.status === 'OVERDUE' ||
+      (currentlyInCustodyBooking.status === 'ACTIVE' && new Date(currentlyInCustodyBooking.endDateTime) < now)
     )
   );
 
-  const isCurrentlyWithUser = Boolean(activeOrApprovedBooking);
+  const isCurrentlyWithUser = Boolean(currentlyInCustodyBooking);
 
   // Check collision with user selected dates
   const selectedStart = new Date(`${startDate}T${startTime}:00Z`);
@@ -194,8 +253,9 @@ export default function EquipmentDetailPage() {
     new Date(b.endDateTime) > selectedStart
   ) : null;
 
-  const isAvailable = equipment.availabilityStatus === 'AVAILABLE' && 
-                      equipment.approvalStatus === 'APPROVED' && 
+  const isAvailable = equipment.approvalStatus === 'APPROVED' && 
+                      equipment.availabilityStatus !== 'MAINTENANCE' && 
+                      equipment.availabilityStatus !== 'RETIRED' && 
                       !isOverdue && 
                       !approvedCollision;
 
@@ -203,6 +263,11 @@ export default function EquipmentDetailPage() {
     e.preventDefault();
     if (!purpose.trim()) {
       setBookingError('Please provide a brief statement of purpose.');
+      return;
+    }
+
+    if (isDurationExceeded) {
+      setBookingError(`Selected loan duration (${currentDurationDays} days) exceeds maximum of ${maxBorrowDays} days.`);
       return;
     }
 
@@ -217,8 +282,8 @@ export default function EquipmentDetailPage() {
     const startDateTime = selectedStart.toISOString();
     const endDateTime = selectedEnd.toISOString();
 
-    const borrowerName = clerkUser?.fullName || clerkUser?.firstName || clerkUser?.username || 'Verified Student';
-    const borrowerEmail = clerkUser?.primaryEmailAddress?.emailAddress || '';
+    const borrowerName = clerkUser?.fullName || clerkUser?.firstName || clerkUser?.username || guestName || 'Verified Student';
+    const borrowerEmail = clerkUser?.primaryEmailAddress?.emailAddress || guestEmail || 'student@tezu.ac.in';
 
     const res = await apiClient.createBooking({
       equipmentId: equipment.id,
@@ -326,13 +391,13 @@ export default function EquipmentDetailPage() {
               <MapPin className="w-5 h-5 text-[#111110] flex-shrink-0 mt-0.5" />
               <div>
                 <span className="text-[10px] uppercase font-bold tracking-wider text-[#70706B] block">
-                  Campus Handover Point
+                  Tezpur University Handover Point
                 </span>
                 <span className="text-xs sm:text-sm font-bold text-[#111110] block mt-0.5">
-                  {equipment.location}
+                  {equipment.location || 'Tezpur University, Assam'}
                 </span>
                 <span className="text-xs text-[#70706B] block mt-1">
-                  Access during campus building hours with verified student credentials.
+                  Access during Tezpur University department hours with verified student credentials.
                 </span>
               </div>
             </div>
@@ -352,7 +417,7 @@ export default function EquipmentDetailPage() {
           />
 
           {/* Condition History & Handover Evidence */}
-          {equipmentActivity.filter(a => Boolean(a.conditionReport)).length > 0 && (
+          {conditionReports.length > 0 && (
             <div className="rounded-[28px] border border-[#E5E5E0] bg-white p-6 sm:p-8 space-y-4 shadow-2xs">
               <div className="flex items-center justify-between">
                 <div>
@@ -367,14 +432,12 @@ export default function EquipmentDetailPage() {
                   </p>
                 </div>
                 <span className="badge-pill badge-available">
-                  {equipmentActivity.filter(a => Boolean(a.conditionReport)).length} Reports
+                  {conditionReports.length} {conditionReports.length === 1 ? 'Report' : 'Reports'}
                 </span>
               </div>
 
               <div className="space-y-3 pt-2">
-                {equipmentActivity
-                  .filter(a => Boolean(a.conditionReport))
-                  .map((act) => {
+                {conditionReports.map((act) => {
                     const cr = act.conditionReport!;
                     const dateFormatted = new Date(act.createdAt).toLocaleDateString('en-US', {
                       month: 'short',
@@ -571,16 +634,23 @@ export default function EquipmentDetailPage() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] uppercase font-bold tracking-wider text-[#70706B]">
-                  Campus Loan Request
+                  Tezpur University Loan Request
                 </span>
                 {isOverdue ? (
                   <span className="badge-pill badge-rejected font-bold">● Overdue Loan</span>
                 ) : isCurrentlyWithUser ? (
-                  <span className="badge-pill badge-booked font-semibold">● In Use (with {activeOrApprovedBooking?.borrowerName})</span>
+                  <span className="badge-pill badge-booked font-semibold">● In Use (with {currentlyInCustodyBooking?.borrowerName})</span>
+                ) : nextUpcomingBooking ? (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="badge-pill badge-available font-semibold">Available Now</span>
+                    <span className="badge-pill bg-[#FEF9C3] text-[#854D0E] border border-[#FDE047] text-[10px]">
+                      Booked {new Date(nextUpcomingBooking.startDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </span>
+                  </div>
                 ) : equipment.approvalStatus === 'APPROVED' && equipment.availabilityStatus === 'AVAILABLE' ? (
                   <span className="badge-pill badge-available">Available to Borrow</span>
                 ) : (
-                  <span className="badge-pill badge-unavailable">Currently In Use</span>
+                  <span className="badge-pill badge-unavailable">Maintenance</span>
                 )}
               </div>
 
@@ -588,7 +658,7 @@ export default function EquipmentDetailPage() {
                 {equipment.name}
               </h1>
               <div className="flex items-center justify-between text-xs text-[#70706B] mt-2 pt-2 border-t border-[#F0F0EE]">
-                <span className="font-semibold text-[#111110]">$0 Free Student Loan</span>
+                <span className="font-semibold text-[#111110]">₹0 Free Student Loan</span>
                 <span className="flex items-center gap-1">
                   <Clock className="w-3.5 h-3.5 text-[#111110]" />
                   Max: {equipment.maxBorrowDays || 3} days
@@ -597,24 +667,36 @@ export default function EquipmentDetailPage() {
             </div>
 
             {/* Active / Approved / Overdue Custody Details */}
-            {isOverdue && activeOrApprovedBooking ? (
+            {isOverdue && currentlyInCustodyBooking ? (
               <div className="p-3.5 bg-[#FEE2E2] border border-[#FCA5A5] rounded-xl text-fluid-micro text-[#991B1B] space-y-1">
                 <div className="flex items-center gap-1.5 font-bold text-sm text-[#DC2626]">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
                   <span>OVERDUE LOAN</span>
                 </div>
                 <p className="leading-relaxed">
-                  Currently in possession of <strong>{activeOrApprovedBooking.borrowerName}</strong>. This equipment was scheduled for return on {new Date(activeOrApprovedBooking.endDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at {new Date(activeOrApprovedBooking.endDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.
+                  Currently in possession of <strong>{currentlyInCustodyBooking.borrowerName}</strong>. This equipment was scheduled for return on {new Date(currentlyInCustodyBooking.endDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at {new Date(currentlyInCustodyBooking.endDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.
                 </p>
               </div>
-            ) : isCurrentlyWithUser && activeOrApprovedBooking ? (
+            ) : isCurrentlyWithUser && currentlyInCustodyBooking ? (
               <div className="p-3.5 bg-[#EBF5FF] border border-[#BFDBFE] rounded-xl text-fluid-micro text-[#1E40AF] space-y-1">
                 <div className="flex items-center gap-1.5 font-bold text-sm text-[#2563EB]">
                   <UserCheck className="w-4 h-4 flex-shrink-0" />
-                  <span>{activeOrApprovedBooking.status === 'ACTIVE' ? 'Currently Checked Out' : 'Approved Reservation'}</span>
+                  <span>{currentlyInCustodyBooking.status === 'ACTIVE' ? 'Currently Checked Out' : 'Active Reservation'}</span>
                 </div>
                 <p className="leading-relaxed">
-                  Currently with <strong>{activeOrApprovedBooking.borrowerName}</strong> until {new Date(activeOrApprovedBooking.endDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ({new Date(activeOrApprovedBooking.endDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}).
+                  Currently with <strong>{currentlyInCustodyBooking.borrowerName}</strong> until {new Date(currentlyInCustodyBooking.endDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ({new Date(currentlyInCustodyBooking.endDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}).
+                </p>
+              </div>
+            ) : nextUpcomingBooking ? (
+              <div className="p-3.5 bg-[#EFF6FF] border border-[#BFDBFE] rounded-2xl text-fluid-micro text-[#1E40AF] space-y-1">
+                <div className="flex items-center gap-1.5 font-bold text-xs text-[#2563EB]">
+                  <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span>Upcoming Reservation Scheduled</span>
+                </div>
+                <p className="leading-relaxed text-[11px] text-[#1E40AF]/90">
+                  Reserved by <strong>{nextUpcomingBooking.borrowerName}</strong> for{' '}
+                  <strong>{new Date(nextUpcomingBooking.startDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – {new Date(nextUpcomingBooking.endDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</strong>.
+                  Equipment is available now for dates before {new Date(nextUpcomingBooking.startDateTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}!
                 </p>
               </div>
             ) : null}
@@ -632,6 +714,48 @@ export default function EquipmentDetailPage() {
             ) : (
               <form onSubmit={handleBookingSubmit} className="space-y-4 pt-1">
                 
+                {/* Number of Days Picker */}
+                <div className="space-y-2 p-3.5 bg-[#F8F8F6] border border-[#E5E5E0] rounded-2xl shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B] flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-[#111110]" />
+                      Loan Duration
+                    </label>
+                    <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${
+                      isDurationExceeded 
+                        ? 'bg-[#FEE2E2] text-[#991B1B] border-[#FCA5A5]'
+                        : 'bg-[#EDEDEA] text-[#111110] border-[#E5E5E0]'
+                    }`}>
+                      {currentDurationDays} {currentDurationDays === 1 ? 'day' : 'days'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
+                    {Array.from({ length: Math.min(8, maxBorrowDays) }, (_, i) => i + 1).map((days) => {
+                      const isSelected = currentDurationDays === days;
+                      return (
+                        <button
+                          key={days}
+                          type="button"
+                          onClick={() => handleSelectDuration(days)}
+                          className={`py-2 px-2 rounded-xl text-xs font-bold transition-all text-center active:scale-95 border ${
+                            isSelected
+                              ? 'bg-[#111110] text-white border-[#111110] shadow-xs'
+                              : 'bg-white text-[#40403C] hover:bg-[#EDEDEA] border-[#E5E5E0]'
+                          }`}
+                        >
+                          {days} {days === 1 ? 'Day' : 'Days'}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-[#70706B] pt-0.5">
+                    <span>Quick presets automatically adjust return date</span>
+                    <span className="font-semibold text-[#111110]">Max: {maxBorrowDays} {maxBorrowDays === 1 ? 'day' : 'days'}</span>
+                  </div>
+                </div>
+
                 {/* Dates */}
                 <div className="space-y-1.5">
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
@@ -703,6 +827,45 @@ export default function EquipmentDetailPage() {
                   </div>
                 )}
 
+                {/* Guest Student Info (when not signed in with Clerk) */}
+                {!clerkUser && (
+                  <div className="space-y-2 p-3.5 bg-[#F8F8F6] border border-[#E5E5E0] rounded-2xl shadow-2xs">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B] flex items-center gap-1.5">
+                        <UserCheck className="w-3.5 h-3.5 text-[#111110]" />
+                        Borrower Identity (Tezpur Univ)
+                      </label>
+                      <span className="text-[10px] text-[#1B7A42] font-semibold bg-[#E8F5EB] px-2 py-0.5 rounded-full">
+                        Student Account
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] text-[#70706B] font-medium block mb-1">Full Name</label>
+                        <input
+                          type="text"
+                          value={guestName}
+                          onChange={(e) => setGuestName(e.target.value)}
+                          placeholder="e.g. Rahul Sharma"
+                          className="input-paraquet text-xs h-[38px] rounded-xl font-medium"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-[#70706B] font-medium block mb-1">Tezpur Univ Email</label>
+                        <input
+                          type="email"
+                          value={guestEmail}
+                          onChange={(e) => setGuestEmail(e.target.value)}
+                          placeholder="e.g. student@tezu.ac.in"
+                          className="input-paraquet text-xs h-[38px] rounded-xl font-medium"
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Purpose */}
                 <div className="space-y-1.5">
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-[#70706B]">
@@ -725,24 +888,33 @@ export default function EquipmentDetailPage() {
                   </div>
                 )}
 
+                {isDurationExceeded && (
+                  <div className="p-3 bg-[#FEE2E2] border border-[#FECACA] rounded-2xl text-xs text-[#DC2626] flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>Selected loan duration ({currentDurationDays} days) exceeds maximum of {maxBorrowDays} days.</span>
+                  </div>
+                )}
+
                 <button
                   type="submit"
-                  disabled={isSubmitting || !isAvailable}
+                  disabled={isSubmitting || !isAvailable || isDurationExceeded}
                   className={`w-full py-3.5 rounded-full text-xs sm:text-sm font-bold transition-all shadow-xs active:scale-98 ${
-                    isAvailable
+                    isAvailable && !isDurationExceeded
                       ? 'btn-primary'
                       : 'inline-flex items-center justify-center bg-[#EDEDEA] text-[#9C9C96] border border-[#E5E5E0] cursor-not-allowed'
                   }`}
                 >
                   {isSubmitting 
                     ? 'Submitting Request...' 
-                    : isOverdue 
-                      ? 'Currently Overdue' 
-                      : approvedCollision 
-                        ? 'Selected Dates Unavailable' 
-                        : isAvailable 
-                          ? 'Submit Reservation Request ↗' 
-                          : 'Unavailable for Booking'}
+                    : isDurationExceeded
+                      ? `Exceeds Max ${maxBorrowDays} Days`
+                      : isOverdue 
+                        ? 'Currently Overdue' 
+                        : approvedCollision 
+                          ? 'Selected Dates Unavailable' 
+                          : isAvailable 
+                            ? 'Submit Reservation Request ↗' 
+                            : 'Unavailable for Booking'}
                 </button>
 
                 <p className="text-center text-[11px] text-[#70706B] pt-1">

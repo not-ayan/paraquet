@@ -57,19 +57,44 @@ export default function EquipmentCard({ equipment, selectedDates }: EquipmentCar
         </span>
       );
     }
-    if (equipment.availabilityStatus === 'AVAILABLE') {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#E8F5EB]/95 backdrop-blur-xs text-[#1B7A42] border border-[#A7F3D0] text-[10px] font-bold shadow-2xs">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#1B7A42]" />
-          <span>Available</span>
-        </span>
-      );
-    }
     if (equipment.availabilityStatus === 'MAINTENANCE') {
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FEE2E2]/95 backdrop-blur-xs text-[#DC2626] border border-[#FECACA] text-[10px] font-bold shadow-2xs">
           <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626]" />
           <span>Maintenance</span>
+        </span>
+      );
+    }
+    if (equipment.availabilityStatus === 'RETIRED') {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#F3F4F6]/95 backdrop-blur-xs text-[#6B7280] border border-[#E5E7EB] text-[10px] font-bold shadow-2xs">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#6B7280]" />
+          <span>Retired</span>
+        </span>
+      );
+    }
+
+    // Available now with upcoming future reservation
+    if (equipment.upcomingReservation) {
+      return (
+        <span 
+          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-[#E8F5EB]/95 backdrop-blur-xs text-[#1B7A42] border border-[#A7F3D0] text-[10px] font-bold shadow-2xs max-w-[190px]"
+          title={`Available now. ${equipment.upcomingReservation.formatted}`}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-[#1B7A42] flex-shrink-0" />
+          <span className="flex-shrink-0">Available</span>
+          <span className="text-[9px] font-semibold text-[#854D0E] bg-[#FEF9C3] px-1.5 py-0.5 rounded-full border border-[#FDE047] truncate">
+            {equipment.upcomingReservation.formatted}
+          </span>
+        </span>
+      );
+    }
+
+    if (equipment.availabilityStatus === 'AVAILABLE') {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#E8F5EB]/95 backdrop-blur-xs text-[#1B7A42] border border-[#A7F3D0] text-[10px] font-bold shadow-2xs">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#1B7A42]" />
+          <span>Available</span>
         </span>
       );
     }

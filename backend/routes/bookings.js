@@ -1,13 +1,18 @@
 const express = require('express');
 const { Booking, Equipment, ActivityLog } = require('../models');
 const { requireUser } = require('../middleware/auth');
-const { compareConditionPhotos } = require('../services/aiCondition');
+const { compareConditionPhotos, analyzeIssueCondition } = require('../services/aiCondition');
 const memoryCache = require('../lib/cache');
+const {
+  sendBookingRequestedEmail,
+  sendPickupConfirmedEmail,
+  sendReturnConfirmedEmail,
+} = require('../services/email');
 
 const router = express.Router();
 
 const ACTIVE_STATUSES = ['pending', 'approved', 'active'];
-const OVERDUE_RATE_PER_DAY = 50; // flat fee per day late — tune for your demo currency
+const OVERDUE_RATE_PER_DAY = 250; // flat fee per day late in INR (₹250/day)
 
 /**
  * The one query that cannot be wrong: any non-terminal booking on this
@@ -101,6 +106,12 @@ router.post('/', requireUser, async (req, res, next) => {
       return res.status(404).json({ error: 'Equipment not available' });
     }
 
+    const maxDays = equipment.maxBorrowDays || 3;
+    const durationDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    if (durationDays > maxDays) {
+      return res.status(400).json({ error: `Selected loan duration (${durationDays} days) exceeds maximum allowed of ${maxDays} days` });
+    }
+
     if (await hasConflict(equipmentId, start, end)) {
       return res.status(409).json({ error: 'Equipment already booked for that window' });
     }
@@ -110,7 +121,7 @@ router.post('/', requireUser, async (req, res, next) => {
       equipment: equipmentId,
       startDate: start,
       endDate: end,
-      location,
+      location: location || equipment.location || 'Tezpur University, Assam',
     });
 
     await ActivityLog.create({
@@ -123,6 +134,13 @@ router.post('/', requireUser, async (req, res, next) => {
 
     await booking.populate('equipment user');
     memoryCache.clearPrefix('equipment:');
+
+    // Fire-and-forget confirmation email to borrower
+    sendBookingRequestedEmail({
+      user: booking.user,
+      equipment: booking.equipment,
+      booking,
+    }).catch((err) => console.warn('[Email] Error sending booking requested email:', err.message));
 
     res.status(201).json(booking);
   } catch (err) {
@@ -182,10 +200,19 @@ router.post('/:id/pickup-condition', requireUser, async (req, res, next) => {
 
     const conditionNormalized = String(condition).toLowerCase();
 
+    // Fetch equipment details for AI prompt context
+    const equipment = await Equipment.findById(booking.equipment);
+    const equipmentName = equipment?.name || 'Equipment Item';
+    const category = equipment?.category || 'General';
+
+    // AI hook — analyze physical baseline condition upon issue
+    const aiAnalysis = await analyzeIssueCondition(photos, equipmentName, category);
+
     booking.pickupCondition = {
       photos,
       notes,
       condition: conditionNormalized,
+      aiAnalysis,
       recordedBy: req.dbUser._id,
       recordedAt: new Date(),
     };
@@ -197,18 +224,27 @@ router.post('/:id/pickup-condition', requireUser, async (req, res, next) => {
       type: 'pickup_recorded',
       booking: booking._id,
       equipment: booking.equipment,
-      message: `Pickup inspection recorded (${conditionNormalized.toUpperCase()})`,
+      message: `Pickup inspection recorded (${conditionNormalized.toUpperCase()} • ${aiAnalysis?.detailedSummary ? 'AI Baseline Verified' : 'Standard Check'})`,
       conditionReport: {
         type: 'pickup',
         condition: conditionNormalized,
         photos,
-        notes,
+        notes: notes ? `${notes} | AI: ${aiAnalysis?.detailedSummary || ''}` : aiAnalysis?.detailedSummary || '',
+        aiAnalysis,
         recordedAt: new Date(),
       },
     });
 
     await booking.populate('equipment user');
     memoryCache.clearPrefix('equipment:');
+
+    // Fire-and-forget pickup confirmation email to borrower
+    sendPickupConfirmedEmail({
+      user: booking.user,
+      equipment: booking.equipment,
+      booking,
+    }).catch((err) => console.warn('[Email] Error sending pickup confirmed email:', err.message));
+
     res.json(booking);
   } catch (err) {
     next(err);
@@ -234,26 +270,55 @@ router.post('/:id/return-condition', requireUser, async (req, res, next) => {
 
     const conditionNormalized = String(condition).toLowerCase();
 
-    // AI hook — services/aiCondition.js is a stub; swap its implementation
-    // and nothing here has to change.
-    const { similarityScore, flagged } = await compareConditionPhotos(
+    const equipment = await Equipment.findById(booking.equipment);
+    const equipmentName = equipment?.name || 'Equipment Item';
+
+    // AI comparison hook — compares return photos against pickup photos for cosmetic vs actual damage
+    const aiVerdict = await compareConditionPhotos(
       booking.pickupCondition?.photos || [],
-      photos
+      photos,
+      equipmentName,
+      booking.pickupCondition?.aiAnalysis || null
     );
+    const { flagged = false, similarityScore = 1 } = aiVerdict || {};
+
+    // If AI flagged structural/cosmetic damage, condition must reflect damage rather than unverified self-grade
+    let finalCondition = conditionNormalized;
+    if (flagged) {
+      if (aiVerdict.damageType === 'structural' || aiVerdict.damageType === 'both') {
+        finalCondition = 'damaged';
+      } else if (aiVerdict.damageType === 'cosmetic' && ['excellent', 'good'].includes(conditionNormalized)) {
+        finalCondition = 'fair';
+      }
+    }
 
     booking.returnCondition = {
       photos,
       notes,
-      condition: conditionNormalized,
+      condition: finalCondition,
       aiSimilarityScore: similarityScore,
       aiFlagged: flagged,
+      aiAnalysis: {
+        detailedSummary: aiVerdict.detailedDiscrepancyReport,
+        conditionRating: aiVerdict.conditionRating || finalCondition,
+        cosmeticFlaws: aiVerdict.cosmeticDamageList || [],
+        actualDamage: aiVerdict.actualDamageList || [],
+        damageType: aiVerdict.damageType || 'none',
+        damageDetected: aiVerdict.damageDetected,
+        detailedDiscrepancyReport: aiVerdict.detailedDiscrepancyReport,
+        recommendedAction: aiVerdict.recommendedAction,
+      },
       recordedBy: req.dbUser._id,
       recordedAt: new Date(),
     };
 
     const now = new Date();
+    let daysLate = 0;
     if (now > booking.endDate) {
-      const daysLate = Math.ceil((now - booking.endDate) / (1000 * 60 * 60 * 24));
+      daysLate = Math.ceil((now - booking.endDate) / (1000 * 60 * 60 * 24));
+      if (!booking.charges) {
+        booking.charges = { overdueFee: 0, damageFee: 0, status: 'none' };
+      }
       booking.charges.overdueFee = daysLate * OVERDUE_RATE_PER_DAY;
       booking.charges.status = 'pending';
     }
@@ -262,14 +327,25 @@ router.post('/:id/return-condition', requireUser, async (req, res, next) => {
     await booking.save();
 
     // Reset equipment availability to available and update condition rating
-    const equipment = await Equipment.findById(booking.equipment);
     if (equipment) {
       equipment.availability = 'available';
-      if (['good', 'fair', 'poor', 'under_repair'].includes(conditionNormalized)) {
-        equipment.condition.status = conditionNormalized;
-        if (notes) equipment.condition.notes = notes;
+      if (flagged && (aiVerdict.damageType === 'structural' || aiVerdict.damageType === 'both')) {
+        equipment.condition.status = 'under_repair';
+      } else if (['good', 'fair', 'poor', 'under_repair'].includes(finalCondition)) {
+        equipment.condition.status = finalCondition;
       }
+      if (notes) equipment.condition.notes = notes;
       await equipment.save();
+    }
+
+    let returnMessage = `Return inspection recorded (${finalCondition.toUpperCase()})`;
+    if (flagged) {
+      returnMessage += ` • ⚠️ AI Discrepancy Flagged (${(aiVerdict.damageType || 'damage').toUpperCase()})`;
+    } else if (typeof similarityScore === 'number') {
+      returnMessage += ` • AI Verified (${Math.round(similarityScore * 100)}% Match)`;
+    }
+    if (booking.charges?.overdueFee > 0) {
+      returnMessage += ` (Late penalty: ₹${booking.charges.overdueFee})`;
     }
 
     await ActivityLog.create({
@@ -277,39 +353,42 @@ router.post('/:id/return-condition', requireUser, async (req, res, next) => {
       type: 'return_recorded',
       booking: booking._id,
       equipment: booking.equipment,
-      message: `Return inspection recorded (${conditionNormalized.toUpperCase()})`,
+      message: returnMessage,
       conditionReport: {
         type: 'return',
-        condition: conditionNormalized,
+        condition: finalCondition,
         photos,
-        notes,
+        notes: notes ? `${notes} | AI: ${aiVerdict.detailedDiscrepancyReport}` : aiVerdict.detailedDiscrepancyReport,
         aiSimilarityScore: similarityScore,
         aiFlagged: flagged,
+        aiAnalysis: booking.returnCondition.aiAnalysis,
         recordedAt: new Date(),
       },
     });
 
     if (flagged) {
+      // Audit log for admins — do not attach duplicate conditionReport
       await ActivityLog.create({
         user: booking.user,
         type: 'condition_flagged',
         booking: booking._id,
         equipment: booking.equipment,
         message: 'Discrepancy flagged by AI inspection check',
-        conditionReport: {
-          type: 'return',
-          condition: 'damaged',
-          photos,
-          notes: notes ? `AI condition discrepancy detected. Notes: ${notes}` : 'Discrepancy detected between pickup and return photos',
-          aiSimilarityScore: similarityScore,
-          aiFlagged: true,
-          recordedAt: new Date(),
-        },
       });
     }
 
     await booking.populate('equipment user');
     memoryCache.clearPrefix('equipment:');
+
+    // Fire-and-forget return confirmation email with AI verdict to borrower
+    sendReturnConfirmedEmail({
+      user: booking.user,
+      equipment: booking.equipment,
+      booking,
+      aiVerdict,
+      overdueFee: booking.charges?.overdueFee || 0,
+    }).catch((err) => console.warn('[Email] Error sending return confirmed email:', err.message));
+
     res.json(booking);
   } catch (err) {
     next(err);

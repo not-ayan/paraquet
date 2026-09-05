@@ -53,54 +53,108 @@ export default function PendingEquipmentPage() {
 
   return (
     <div className="container">
-      <h1>Pending Equipment</h1>
-      {error && <p className="error">{error}</p>}
-      {items.length === 0 && !error && <p className="empty">Nothing waiting on approval.</p>}
+      <div className="page-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="badge pending">Pending Moderation: {items.length}</span>
+        </div>
+        <h1 className="page-title">Pending Equipment Listings</h1>
+        <p className="page-desc">
+          Review community-submitted equipment, check specifications and photo guidelines, then approve to the active catalogue.
+        </p>
+      </div>
+
+      {error && (
+        <div className="error-banner">
+          <span>⚠️</span>
+          <span>{error}</span>
+        </div>
+      )}
+
+      {items.length === 0 && !error && (
+        <div className="empty-state">
+          <div className="empty-icon">✅</div>
+          <div className="empty-title">All listings moderated</div>
+          <div className="empty-text">No equipment postings are waiting for approval right now.</div>
+        </div>
+      )}
+
       {items.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Category</th>
-              <th>Qty</th>
-              <th>Submitted</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr key={item._id}>
-                <td>{item.name}</td>
-                <td>{item.category}</td>
-                <td>{item.quantity}</td>
-                <td>{new Date(item.createdAt).toLocaleDateString()}</td>
-                <td>
-                  <button
-                    className="btn approve"
-                    disabled={busyId === item._id}
-                    onClick={() => act(item._id, 'approve')}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    className="btn reject"
-                    disabled={busyId === item._id}
-                    onClick={() => act(item._id, 'reject')}
-                  >
-                    Reject
-                  </button>
-                  <button
-                    className="btn delete"
-                    disabled={busyId === item._id}
-                    onClick={() => handleDelete(item._id, item.name)}
-                  >
-                    Delete
-                  </button>
-                </td>
+        <div className="table-card">
+          <table>
+            <thead>
+              <tr>
+                <th>Equipment</th>
+                <th>Category</th>
+                <th>Qty</th>
+                <th>Submitted</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item._id}>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      {item.images?.[0] ? (
+                        <img
+                          src={item.images[0]}
+                          alt={item.name}
+                          style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--border-subtle)' }}
+                        />
+                      ) : (
+                        <div style={{ width: 44, height: 44, borderRadius: 8, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>
+                          📦
+                        </div>
+                      )}
+                      <div>
+                        <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{item.name}</div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{item.description ? item.description.slice(0, 50) + '...' : 'No description'}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <span className="badge" style={{ background: '#f8fafc', color: 'var(--text-secondary)' }}>
+                      {item.category || 'General'}
+                    </span>
+                  </td>
+                  <td>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{item.quantity}</span>
+                  </td>
+                  <td>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                      {new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <div style={{ display: 'inline-flex', gap: 6 }}>
+                      <button
+                        className="btn approve"
+                        disabled={busyId === item._id}
+                        onClick={() => act(item._id, 'approve')}
+                      >
+                        {busyId === item._id ? '...' : 'Approve'}
+                      </button>
+                      <button
+                        className="btn reject"
+                        disabled={busyId === item._id}
+                        onClick={() => act(item._id, 'reject')}
+                      >
+                        {busyId === item._id ? '...' : 'Reject'}
+                      </button>
+                      <button
+                        className="btn delete"
+                        disabled={busyId === item._id}
+                        onClick={() => handleDelete(item._id, item.name)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

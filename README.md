@@ -4,7 +4,7 @@
 
 **Repository**: [https://github.com/not-ayan/paraquet](https://github.com/not-ayan/paraquet)
 
-A centralized equipment sharing and booking management platform designed for student and campus communities. The system enables users to browse, list, and reserve equipment while maintaining accountability through condition tracking, custody audit logging, and administrative review.
+A centralized equipment sharing and booking management platform designed for the Tezpur University student and academic community in Assam. The system enables users to browse, list, and reserve equipment while maintaining accountability through condition tracking, custody audit logging, and administrative review.
 
 ---
 

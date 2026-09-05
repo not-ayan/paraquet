@@ -15,9 +15,11 @@ import {
   User as UserIcon,
   FileText,
   AlertTriangle,
+  AlertCircle,
   Sparkles,
   ShieldCheck,
   ZoomIn,
+  Bot,
   X
 } from 'lucide-react';
 import { useAuth, useUser } from '@clerk/nextjs';
@@ -32,8 +34,8 @@ export default function DashboardPage() {
   const [user, setUser] = useState<UserProfile>({
     clerkId: 'user_student',
     name: 'Student Borrower',
-    email: 'student@campus.edu',
-    department: 'Creative Media & Arts',
+    email: 'student@tezu.ac.in',
+    department: 'Tezpur University, Assam',
     studentId: '2026-STU-8821',
     avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
     borrowingCount: 0,
@@ -308,6 +310,11 @@ export default function DashboardPage() {
                       <div className="space-y-1.5 min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           {getStatusBadge(b.status)}
+                          {b.charges && ((b.charges.overdueFee || 0) > 0 || (b.charges.damageFee || 0) > 0) && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#FEE2E2] text-[#991B1B] border border-[#FCA5A5]">
+                              Fee: ₹{((b.charges.overdueFee || 0) + (b.charges.damageFee || 0)).toLocaleString('en-IN')}
+                            </span>
+                          )}
                           <span className="text-[11px] text-[#70706B] font-mono">Ref: {b.id.slice(-8)}</span>
                         </div>
                         
@@ -391,33 +398,216 @@ export default function DashboardPage() {
                     </div>
                   )}
 
-                  {/* Condition Reports */}
+                  {/* Condition Reports with Gemini AI Analysis */}
                   {(b.pickupReport || b.returnReport) && (
-                    <div className="pt-3 border-t border-[#E5E5E0] grid grid-cols-1 sm:grid-cols-2 gap-3 bg-[#F9F9F8] p-4 rounded-2xl text-xs border border-[#E5E5E0]">
-                      {b.pickupReport && (
-                        <div className="space-y-0.5">
-                          <span className="font-bold text-[#1B7A42] flex items-center gap-1">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            Pickup Handover: {b.pickupReport.condition}
-                          </span>
-                          <span className="text-[#70706B] truncate block pl-4.5">{b.pickupReport.notes || 'Handover condition verified'}</span>
-                        </div>
-                      )}
-                      {b.returnReport && (
-                        <div className="space-y-0.5">
-                          <span className="font-bold text-[#1B7A42] flex items-center gap-1">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            Return Inspection: {b.returnReport.condition}
-                          </span>
-                          <span className="text-[#70706B] truncate block pl-4.5">{b.returnReport.notes || 'Return inspection recorded'}</span>
-                        </div>
-                      )}
+                    <div className="pt-3 border-t border-[#E5E5E0] space-y-3 bg-[#F9F9F8] p-4 rounded-2xl text-xs border border-[#E5E5E0]">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {/* Pickup Report Card */}
+                        {b.pickupReport && (
+                          <div className="bg-white p-3.5 rounded-xl border border-[#E5E5E0] space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-bold text-[#1B7A42] flex items-center gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                Pickup Baseline Handover
+                              </span>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]">
+                                {b.pickupReport.condition}
+                              </span>
+                            </div>
+
+                            {/* Photos & Notes */}
+                            <div className="flex items-start gap-2.5">
+                              {b.pickupReport.photos && b.pickupReport.photos.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedPhotoPreview({
+                                    url: b.pickupReport!.photos![0],
+                                    title: `${b.equipmentName} - Pickup Baseline Photo`
+                                  })}
+                                  className="w-12 h-12 rounded-lg overflow-hidden border border-[#E5E5E0] flex-shrink-0 group relative"
+                                  title="View pickup inspection photo"
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={b.pickupReport.photos[0]}
+                                    alt="pickup baseline"
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                  />
+                                  <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white">
+                                    <ZoomIn className="w-3 h-3" />
+                                  </div>
+                                </button>
+                              )}
+                              <div className="min-w-0 text-[11px] text-[#70706B] space-y-0.5">
+                                <p className="italic text-[#111110]/80">
+                                  "{b.pickupReport.notes || 'Baseline checkout inspection verified.'}"
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Gemini AI Baseline Assessment */}
+                            {b.pickupReport.aiAnalysis && (
+                              <div className="p-2.5 bg-[#F0FDF4] border border-[#BBF7D0] rounded-lg text-[11px] space-y-1">
+                                <div className="flex items-center gap-1.5 font-bold text-[#15803D]">
+                                  <Bot className="w-3 h-3 text-[#16A34A]" />
+                                  <span>Gemini AI Baseline Inspection:</span>
+                                </div>
+                                <p className="text-[#166534] leading-relaxed">
+                                  {b.pickupReport.aiAnalysis.detailedSummary}
+                                </p>
+                                {b.pickupReport.aiAnalysis.cosmeticFlaws && b.pickupReport.aiAnalysis.cosmeticFlaws.length > 0 && (
+                                  <div className="pt-1 flex flex-wrap gap-1 items-center">
+                                    <span className="text-[10px] text-[#70706B] font-medium">Pre-existing wear:</span>
+                                    {b.pickupReport.aiAnalysis.cosmeticFlaws.map((flaw, idx) => (
+                                      <span key={idx} className="px-1.5 py-0.5 rounded bg-white text-[#92400E] border border-[#FDE68A] text-[10px]">
+                                        {flaw}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Return Report Card */}
+                        {b.returnReport && (
+                          <div className="bg-white p-3.5 rounded-xl border border-[#E5E5E0] space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-bold text-[#7E22CE] flex items-center gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                Return Verification Report
+                              </span>
+                              <div className="flex items-center gap-1">
+                                {typeof b.returnReport.aiSimilarityScore === 'number' && (
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                                    b.returnReport.aiSimilarityScore >= 0.85
+                                      ? 'bg-[#F0FDF4] text-[#166534] border-[#BBF7D0]'
+                                      : 'bg-[#FEF2F2] text-[#991B1B] border-[#FECACA]'
+                                  }`}>
+                                    {Math.round(b.returnReport.aiSimilarityScore * 100)}% Match
+                                  </span>
+                                )}
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FAF5FF] text-[#6B21A8] border border-[#E9D5FF]">
+                                  {b.returnReport.condition}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Photos & Notes */}
+                            <div className="flex items-start gap-2.5">
+                              {b.returnReport.photos && b.returnReport.photos.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedPhotoPreview({
+                                    url: b.returnReport!.photos![0],
+                                    title: `${b.equipmentName} - Return Verification Photo`
+                                  })}
+                                  className="w-12 h-12 rounded-lg overflow-hidden border border-[#E5E5E0] flex-shrink-0 group relative"
+                                  title="View return inspection photo"
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={b.returnReport.photos[0]}
+                                    alt="return inspection"
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                  />
+                                  <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white">
+                                    <ZoomIn className="w-3 h-3" />
+                                  </div>
+                                </button>
+                              )}
+                              <div className="min-w-0 text-[11px] text-[#70706B] space-y-0.5">
+                                <p className="italic text-[#111110]/80">
+                                  "{b.returnReport.notes || 'Return inspection recorded.'}"
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Gemini AI Damage Assessment */}
+                            {b.returnReport.aiAnalysis && (
+                              <div className={`p-2.5 rounded-lg text-[11px] space-y-1.5 border ${
+                                b.returnReport.aiAnalysis.damageType === 'structural' || b.returnReport.aiAnalysis.damageType === 'both'
+                                  ? 'bg-[#FEF2F2] border-[#FECACA] text-[#991B1B]'
+                                  : b.returnReport.aiAnalysis.damageType === 'cosmetic'
+                                  ? 'bg-[#FFFBEB] border-[#FDE68A] text-[#92400E]'
+                                  : 'bg-[#F0FDF4] border-[#BBF7D0] text-[#166534]'
+                              }`}>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-1.5 font-bold">
+                                    <Bot className="w-3 h-3" />
+                                    <span>Gemini Damage Comparison:</span>
+                                  </div>
+                                  <span className="font-extrabold uppercase text-[9px] px-1.5 py-0.5 rounded bg-white shadow-2xs">
+                                    {b.returnReport.aiAnalysis.damageType === 'none' && 'No Damage'}
+                                    {b.returnReport.aiAnalysis.damageType === 'cosmetic' && 'Cosmetic Wear'}
+                                    {b.returnReport.aiAnalysis.damageType === 'structural' && 'Structural Damage'}
+                                    {b.returnReport.aiAnalysis.damageType === 'both' && 'Cosmetic & Structural Damage'}
+                                  </span>
+                                </div>
+
+                                <p className="leading-relaxed">
+                                  {b.returnReport.aiAnalysis.detailedDiscrepancyReport || b.returnReport.aiAnalysis.detailedSummary}
+                                </p>
+
+                                {/* Separate Cosmetic vs Actual Damage Pills */}
+                                <div className="space-y-1 pt-1 border-t border-black/5">
+                                  {b.returnReport.aiAnalysis.cosmeticFlaws && b.returnReport.aiAnalysis.cosmeticFlaws.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 items-center">
+                                      <span className="text-[10px] font-semibold opacity-80">Cosmetic:</span>
+                                      {b.returnReport.aiAnalysis.cosmeticFlaws.map((flaw, idx) => (
+                                        <span key={idx} className="px-1.5 py-0.5 rounded bg-white text-[#92400E] border border-[#FDE68A] text-[9px] font-medium">
+                                          {flaw}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {b.returnReport.aiAnalysis.actualDamage && b.returnReport.aiAnalysis.actualDamage.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 items-center">
+                                      <span className="text-[10px] font-semibold opacity-80">Actual Damage:</span>
+                                      {b.returnReport.aiAnalysis.actualDamage.map((dmg, idx) => (
+                                        <span key={idx} className="px-1.5 py-0.5 rounded bg-[#DC2626] text-white text-[9px] font-bold">
+                                          {dmg}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 
                   {b.rejectionReason && (
                     <div className="p-3.5 bg-[#FEE2E2]/80 border border-[#FCA5A5] rounded-2xl text-xs text-[#991B1B]">
                       <strong className="block mb-0.5">Rejection Reason:</strong> {b.rejectionReason}
+                    </div>
+                  )}
+
+                  {/* Charges / Late & Damage Fees Assessed */}
+                  {b.charges && ((b.charges.overdueFee || 0) > 0 || (b.charges.damageFee || 0) > 0) && (
+                    <div className="p-3.5 bg-[#FEF2F2] border border-[#FECACA] rounded-2xl text-xs text-[#991B1B] flex flex-wrap items-center justify-between gap-3">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1.5 font-bold text-[#DC2626]">
+                          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                          <span>Penalty / Charges Assessed (INR)</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-[11px] text-[#7F1D1D] pl-5.5 flex-wrap">
+                          {(b.charges.overdueFee || 0) > 0 && (
+                            <span>Overdue Late Fee: <strong>₹{b.charges.overdueFee}</strong></span>
+                          )}
+                          {(b.charges.damageFee || 0) > 0 && (
+                            <span>Damage Fee: <strong>₹{b.charges.damageFee}</strong></span>
+                          )}
+                          <span>Payment Status: <strong className="capitalize">{b.charges.status || 'pending'}</strong></span>
+                        </div>
+                      </div>
+                      <div className="text-right font-extrabold text-sm text-[#DC2626]">
+                        Total: ₹{((b.charges.overdueFee || 0) + (b.charges.damageFee || 0)).toLocaleString('en-IN')}
+                      </div>
                     </div>
                   )}
 
@@ -515,7 +705,7 @@ export default function DashboardPage() {
               </div>
               <h3 className="text-fluid-h3 font-bold text-[#111110]">No gear listed yet</h3>
               <p className="text-xs sm:text-sm text-[#70706B] max-w-sm mx-auto">
-                Have studio equipment or sensors to share? List them for peer campus makers.
+                Have studio equipment, lab gear, or sensors to share? List them for Tezpur University peer makers in Assam.
               </p>
               <Link href="/equipment/new" className="btn-primary inline-flex text-xs py-2.5 px-5">
                 List Equipment
@@ -699,8 +889,111 @@ export default function DashboardPage() {
                           </div>
                         </div>
 
-                        {/* AI Condition Check Badge / Alert */}
-                        {cr.aiFlagged ? (
+                        {/* Gemini AI Condition Inspection & Damage Breakdown */}
+                        {cr.aiAnalysis ? (
+                          <div className={`p-4 rounded-2xl border text-xs space-y-2.5 ${
+                            cr.type === 'PICKUP'
+                              ? 'bg-[#F0FDF4] border-[#BBF7D0]'
+                              : cr.aiAnalysis.damageType === 'structural' || cr.aiAnalysis.damageType === 'both' || cr.aiFlagged
+                              ? 'bg-[#FEF2F2] border-[#FECACA]'
+                              : cr.aiAnalysis.damageType === 'cosmetic'
+                              ? 'bg-[#FFFBEB] border-[#FDE68A]'
+                              : 'bg-[#F0FDF4] border-[#BBF7D0]'
+                          }`}>
+                            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-black/5 pb-2">
+                              <div className="flex items-center gap-2">
+                                <Bot className="w-4 h-4 text-[#111110]" />
+                                <span className="font-bold text-[#111110]">
+                                  {cr.type === 'PICKUP'
+                                    ? 'Gemini AI Baseline Inspection Report'
+                                    : 'Gemini AI Return Damage Audit'}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {typeof cr.aiSimilarityScore === 'number' && (
+                                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white text-[#111110] border border-[#E5E5E0] shadow-2xs">
+                                    Similarity: {Math.round(cr.aiSimilarityScore * 100)}%
+                                  </span>
+                                )}
+
+                                {cr.type === 'RETURN' && (
+                                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase border ${
+                                    cr.aiAnalysis.damageType === 'none'
+                                      ? 'bg-[#DCFCE7] text-[#166534] border-[#86EFAC]'
+                                      : cr.aiAnalysis.damageType === 'cosmetic'
+                                      ? 'bg-[#FEF3C7] text-[#92400E] border-[#FDE68A]'
+                                      : 'bg-[#FEE2E2] text-[#991B1B] border-[#FCA5A5]'
+                                  }`}>
+                                    {cr.aiAnalysis.damageType === 'none' && 'No Damage'}
+                                    {cr.aiAnalysis.damageType === 'cosmetic' && 'Cosmetic Wear'}
+                                    {cr.aiAnalysis.damageType === 'structural' && 'Structural Damage'}
+                                    {cr.aiAnalysis.damageType === 'both' && 'Cosmetic & Structural Damage'}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Detailed Condition Statement */}
+                            <p className="text-[#111110]/90 leading-relaxed">
+                              {cr.type === 'RETURN' && cr.aiAnalysis.detailedDiscrepancyReport
+                                ? cr.aiAnalysis.detailedDiscrepancyReport
+                                : cr.aiAnalysis.detailedSummary}
+                            </p>
+
+                            {/* Cosmetic vs Actual Damage Breakdown */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                              {/* Cosmetic Flaws */}
+                              <div className="p-2.5 bg-white/80 rounded-xl border border-black/5 space-y-1">
+                                <span className="text-[10px] uppercase font-bold text-[#70706B] block">
+                                  {cr.type === 'PICKUP' ? 'Pre-Existing Flaws' : 'Cosmetic Flaws (Scuffs / Wear)'}
+                                </span>
+                                {cr.aiAnalysis.cosmeticFlaws && cr.aiAnalysis.cosmeticFlaws.length > 0 ? (
+                                  <ul className="space-y-0.5">
+                                    {cr.aiAnalysis.cosmeticFlaws.map((flaw, idx) => (
+                                      <li key={idx} className="text-[11px] text-[#92400E] flex items-center gap-1.5">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-[#D97706] flex-shrink-0" />
+                                        <span>{flaw}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <span className="text-[11px] text-[#16A34A] flex items-center gap-1">
+                                    <ShieldCheck className="w-3 h-3" /> No cosmetic blemishes observed
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Actual Damage */}
+                              <div className="p-2.5 bg-white/80 rounded-xl border border-black/5 space-y-1">
+                                <span className="text-[10px] uppercase font-bold text-[#70706B] block">
+                                  Actual / Structural Damage
+                                </span>
+                                {cr.aiAnalysis.actualDamage && cr.aiAnalysis.actualDamage.length > 0 ? (
+                                  <ul className="space-y-0.5">
+                                    {cr.aiAnalysis.actualDamage.map((dmg, idx) => (
+                                      <li key={idx} className="text-[11px] text-[#DC2626] font-semibold flex items-center gap-1.5">
+                                        <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                                        <span>{dmg}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <span className="text-[11px] text-[#16A34A] flex items-center gap-1">
+                                    <ShieldCheck className="w-3 h-3" /> Intact • No structural damage
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Recommended Action / Flag Notice */}
+                            {cr.aiAnalysis.recommendedAction && (
+                              <div className="text-[11px] font-semibold text-[#70706B] pt-0.5">
+                                💡 Recommended Action: <span className="text-[#111110]">{cr.aiAnalysis.recommendedAction}</span>
+                              </div>
+                            )}
+                          </div>
+                        ) : cr.aiFlagged ? (
                           <div className="p-3.5 bg-[#FEE2E2]/80 border border-[#FCA5A5] rounded-2xl flex items-start gap-2.5 text-xs text-[#991B1B]">
                             <AlertTriangle className="w-4 h-4 text-[#DC2626] flex-shrink-0 mt-0.5" />
                             <div>

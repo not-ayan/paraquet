@@ -1,8 +1,10 @@
-import { ClerkProvider, UserButton } from '@clerk/nextjs';
+import { ClerkProvider } from '@clerk/nextjs';
+import AdminNav from './AdminNav';
 import './globals.css';
 
 export const metadata = {
-  title: 'Admin — Equipment Lending Portal',
+  title: 'Admin Console — Tezpur University, Assam',
+  description: 'Manage Tezpur University campus equipment listings, loan approvals, condition audits, and user access.',
 };
 
 export default function RootLayout({ children }) {
@@ -10,18 +12,7 @@ export default function RootLayout({ children }) {
     <ClerkProvider>
       <html lang="en">
         <body>
-          <header className="header">
-            <span className="brand">Admin</span>
-            <nav>
-              <a href="/equipment/pending">Pending Equipment</a>
-              <a href="/equipment">All Equipment</a>
-              <a href="/bookings/pending">Pending Bookings</a>
-              <a href="/bookings/flagged">Flagged Bookings</a>
-              <a href="/users">Users</a>
-              <a href="/logs">Activity Log</a>
-            </nav>
-            <UserButton afterSignOutUrl="/" />
-          </header>
+          <AdminNav />
           <main>{children}</main>
         </body>
       </html>

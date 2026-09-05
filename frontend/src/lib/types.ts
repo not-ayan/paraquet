@@ -15,17 +15,32 @@ export type BookingStatus = 'PENDING' | 'APPROVED' | 'ACTIVE' | 'RETURNED' | 'CA
 
 export type ConditionGrade = 'EXCELLENT' | 'GOOD' | 'FAIR' | 'DAMAGED';
 
+export interface AiConditionAnalysis {
+  detailedSummary?: string;
+  conditionRating?: string;
+  cosmeticFlaws?: string[];
+  actualDamage?: string[];
+  damageType?: 'none' | 'cosmetic' | 'structural' | 'both' | string;
+  damageDetected?: boolean;
+  detailedDiscrepancyReport?: string;
+  recommendedAction?: string;
+}
+
 export interface ConditionReport {
   id: string;
   bookingId: string;
   type: 'PICKUP' | 'RETURN';
   condition: ConditionGrade;
   photoUrl: string;
+  photos?: string[];
   notes?: string;
   reportedAt: string;
   reportedBy: string;
   aiDamageDetected?: boolean;
   aiConfidence?: number;
+  aiFlagged?: boolean;
+  aiSimilarityScore?: number;
+  aiAnalysis?: AiConditionAnalysis;
 }
 
 export interface StatusChangeRecord {
@@ -41,6 +56,13 @@ export interface DateAvailability {
   isAvailable: boolean;
   conflictReason?: string;
   conflictCount?: number;
+}
+
+export interface UpcomingReservation {
+  startDate: string;
+  endDate: string;
+  status: string;
+  formatted: string;
 }
 
 export interface Equipment {
@@ -62,6 +84,13 @@ export interface Equipment {
   maxBorrowDays?: number;
   statusHistory?: StatusChangeRecord[];
   dateAvailability?: DateAvailability;
+  upcomingReservation?: UpcomingReservation;
+}
+
+export interface BookingCharges {
+  overdueFee?: number;
+  damageFee?: number;
+  status?: 'none' | 'pending' | 'paid' | 'waived' | string;
 }
 
 export interface Booking {
@@ -78,6 +107,7 @@ export interface Booking {
   status: BookingStatus;
   pickupReport?: ConditionReport;
   returnReport?: ConditionReport;
+  charges?: BookingCharges;
   rejectionReason?: string;
   createdAt: string;
 }
@@ -87,6 +117,8 @@ export interface ActivityLog {
   userId: string;
   userName: string;
   userAvatar?: string;
+  type?: string;
+  bookingId?: string;
   action: 
     | 'EQUIPMENT_CREATED'
     | 'EQUIPMENT_APPROVED'
@@ -113,6 +145,7 @@ export interface ActivityLog {
     notes?: string;
     aiFlagged?: boolean;
     aiSimilarityScore?: number;
+    aiAnalysis?: AiConditionAnalysis;
     recordedAt?: string;
     recordedBy?: string;
   };

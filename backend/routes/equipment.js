@@ -36,24 +36,72 @@ router.get('/', async (req, res, next) => {
       .sort({ createdAt: -1 })
       .lean();
 
+    const now = new Date();
+    const equipmentIds = items.map((i) => i._id);
+
+    // Fetch active & upcoming bookings that haven't ended yet
+    const activeAndFutureBookings = await Booking.find({
+      equipment: { $in: equipmentIds },
+      status: { $in: ['pending', 'approved', 'active'] },
+      endDate: { $gte: now },
+    }).sort({ startDate: 1 }).lean();
+
+    // Map each item with dynamic real-time status and upcoming reservation metadata
+    items = items.map((item) => {
+      const itemBookings = activeAndFutureBookings.filter(
+        (b) => b.equipment.toString() === item._id.toString()
+      );
+
+      // Truly in custody right now
+      const currentInUse = itemBookings.find(
+        (b) => b.status === 'active' || (b.status === 'approved' && new Date(b.startDate) <= now && new Date(b.endDate) >= now)
+      );
+
+      // Future booked reservation
+      const futureBooking = itemBookings.find(
+        (b) => (b.status === 'approved' || b.status === 'pending') && new Date(b.startDate) > now
+      );
+
+      let effectiveAvailability = item.availability;
+      if (item.availability !== 'maintenance' && item.availability !== 'retired') {
+        effectiveAvailability = currentInUse ? 'booked' : 'available';
+      }
+
+      let upcomingReservation = null;
+      if (futureBooking) {
+        const startStr = new Date(futureBooking.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const endStr = new Date(futureBooking.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        upcomingReservation = {
+          startDate: futureBooking.startDate,
+          endDate: futureBooking.endDate,
+          status: futureBooking.status,
+          formatted: `Booked ${startStr} – ${endStr}`,
+        };
+      }
+
+      return {
+        ...item,
+        maxBorrowDays: item.maxBorrowDays || 3,
+        availability: effectiveAvailability,
+        effectiveAvailability,
+        upcomingReservation,
+      };
+    });
+
     // If date range is specified, evaluate overlapping bookings for each equipment
     if (startDate && endDate) {
       const reqStart = new Date(startDate);
       const reqEnd = new Date(endDate);
 
       if (!isNaN(reqStart.getTime()) && !isNaN(reqEnd.getTime())) {
-        const equipmentIds = items.map((i) => i._id);
-
-        const overlappingBookings = await Booking.find({
-          equipment: { $in: equipmentIds },
-          status: { $in: ['pending', 'approved', 'active'] },
-          startDate: { $lt: reqEnd },
-          endDate: { $gt: reqStart },
-        }).lean();
-
         items = items.map((item) => {
-          const itemConflicts = overlappingBookings.filter(
+          const itemBookings = activeAndFutureBookings.filter(
             (b) => b.equipment.toString() === item._id.toString()
+          );
+
+          // An interval conflict only happens if dates overlap
+          const itemConflicts = itemBookings.filter(
+            (b) => new Date(b.startDate) < reqEnd && new Date(b.endDate) > reqStart
           );
 
           const isUnderMaintenance = item.availability === 'maintenance';
@@ -116,9 +164,49 @@ router.get('/:id', async (req, res, next) => {
     const item = await Equipment.findById(req.params.id).lean();
     if (!item) return res.status(404).json({ error: 'Not found' });
 
-    memoryCache.set(cacheKey, item, 30);
+    const now = new Date();
+    const itemBookings = await Booking.find({
+      equipment: item._id,
+      status: { $in: ['pending', 'approved', 'active'] },
+      endDate: { $gte: now },
+    }).sort({ startDate: 1 }).lean();
+
+    const currentInUse = itemBookings.find(
+      (b) => b.status === 'active' || (b.status === 'approved' && new Date(b.startDate) <= now && new Date(b.endDate) >= now)
+    );
+
+    const futureBooking = itemBookings.find(
+      (b) => (b.status === 'approved' || b.status === 'pending') && new Date(b.startDate) > now
+    );
+
+    let effectiveAvailability = item.availability;
+    if (item.availability !== 'maintenance' && item.availability !== 'retired') {
+      effectiveAvailability = currentInUse ? 'booked' : 'available';
+    }
+
+    let upcomingReservation = null;
+    if (futureBooking) {
+      const startStr = new Date(futureBooking.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const endStr = new Date(futureBooking.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      upcomingReservation = {
+        startDate: futureBooking.startDate,
+        endDate: futureBooking.endDate,
+        status: futureBooking.status,
+        formatted: `Booked ${startStr} – ${endStr}`,
+      };
+    }
+
+    const payload = {
+      ...item,
+      maxBorrowDays: item.maxBorrowDays || 3,
+      availability: effectiveAvailability,
+      effectiveAvailability,
+      upcomingReservation,
+    };
+
+    memoryCache.set(cacheKey, payload, 30);
     res.setHeader('X-Cache', 'MISS');
-    res.json(item);
+    res.json(payload);
   } catch (err) {
     next(err);
   }
@@ -127,7 +215,7 @@ router.get('/:id', async (req, res, next) => {
 // POST /api/equipment — any signed-in user can propose an item; starts pending
 router.post('/', requireUser, async (req, res, next) => {
   try {
-    const { name, description, category, tags, images, quantity, location } = req.body;
+    const { name, description, category, tags, images, quantity, location, maxBorrowDays } = req.body;
     if (!name) return res.status(400).json({ error: 'name is required' });
 
     const item = await Equipment.create({
@@ -138,6 +226,7 @@ router.post('/', requireUser, async (req, res, next) => {
       images,
       quantity,
       location,
+      maxBorrowDays: maxBorrowDays ? Math.max(1, Math.min(30, Number(maxBorrowDays))) : 3,
       addedBy: req.dbUser._id,
     });
 
@@ -166,9 +255,15 @@ router.patch('/:id', requireUser, async (req, res, next) => {
       return res.status(403).json({ error: 'Not allowed' });
     }
 
-    const editable = ['name', 'description', 'category', 'tags', 'images', 'quantity', 'location', 'condition', 'availability'];
+    const editable = ['name', 'description', 'category', 'tags', 'images', 'quantity', 'location', 'condition', 'availability', 'maxBorrowDays'];
     editable.forEach((field) => {
-      if (req.body[field] !== undefined) item[field] = req.body[field];
+      if (req.body[field] !== undefined) {
+        if (field === 'maxBorrowDays') {
+          item.maxBorrowDays = Math.max(1, Math.min(30, Number(req.body[field]) || 3));
+        } else {
+          item[field] = req.body[field];
+        }
+      }
     });
 
     await item.save();
