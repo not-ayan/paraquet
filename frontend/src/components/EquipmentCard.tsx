@@ -133,12 +133,18 @@ export default function EquipmentCard({ equipment, selectedDates }: EquipmentCar
         {/* Floating Bottom Bar: Steward Pill */}
         <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1.5 pointer-events-none z-10">
           <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#111110]/80 text-white backdrop-blur-xs flex items-center gap-1.5 max-w-[160px] pointer-events-auto">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={equipment.ownerAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=60&q=80'}
-              alt=""
-              className="w-3.5 h-3.5 rounded-full object-cover flex-shrink-0"
-            />
+            {equipment.ownerAvatar && !equipment.ownerAvatar.includes('photo-1534528741775-53994a69daeb') ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={equipment.ownerAvatar}
+                alt=""
+                className="w-3.5 h-3.5 rounded-full object-cover flex-shrink-0"
+              />
+            ) : (
+              <span className="w-3.5 h-3.5 rounded-full bg-white/30 text-[8px] flex items-center justify-center font-bold">
+                {(equipment.ownerName || 'S')[0].toUpperCase()}
+              </span>
+            )}
             <span className="truncate">{equipment.ownerName?.split(' ')[0] || 'Steward'}</span>
           </span>
         </div>

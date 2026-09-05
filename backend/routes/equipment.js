@@ -31,6 +31,7 @@ router.get('/', async (req, res, next) => {
     if (q) filter.$text = { $search: q };
 
     let items = await Equipment.find(filter)
+      .populate('addedBy', 'name email clerkId avatarUrl')
       .limit(Number(limit))
       .skip((Number(page) - 1) * Number(limit))
       .sort({ createdAt: -1 })
@@ -147,6 +148,22 @@ router.get('/', async (req, res, next) => {
   }
 });
 
+// GET /api/equipment/my — all equipment listed by logged-in user
+router.get('/my', requireUser, async (req, res, next) => {
+  try {
+    if (!isDbConnected()) {
+      return res.status(503).json({ error: 'Database is reconnecting. Please retry.' });
+    }
+    const items = await Equipment.find({ addedBy: req.dbUser._id })
+      .populate('addedBy', 'name email clerkId avatarUrl')
+      .sort({ createdAt: -1 })
+      .lean();
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/equipment/:id
 router.get('/:id', async (req, res, next) => {
   try {
@@ -161,7 +178,9 @@ router.get('/:id', async (req, res, next) => {
       return res.status(503).json({ error: 'Database is reconnecting. Please retry.' });
     }
 
-    const item = await Equipment.findById(req.params.id).lean();
+    const item = await Equipment.findById(req.params.id)
+      .populate('addedBy', 'name email clerkId avatarUrl')
+      .lean();
     if (!item) return res.status(404).json({ error: 'Not found' });
 
     const now = new Date();
@@ -215,7 +234,7 @@ router.get('/:id', async (req, res, next) => {
 // POST /api/equipment — any signed-in user can propose an item; starts pending
 router.post('/', requireUser, async (req, res, next) => {
   try {
-    const { name, description, category, tags, images, quantity, location, maxBorrowDays } = req.body;
+    const { name, description, category, tags, images, quantity, location, maxBorrowDays, condition } = req.body;
     if (!name) return res.status(400).json({ error: 'name is required' });
 
     const item = await Equipment.create({
@@ -226,6 +245,7 @@ router.post('/', requireUser, async (req, res, next) => {
       images,
       quantity,
       location,
+      condition: condition || { status: 'good' },
       maxBorrowDays: maxBorrowDays ? Math.max(1, Math.min(30, Number(maxBorrowDays))) : 3,
       addedBy: req.dbUser._id,
     });

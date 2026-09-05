@@ -130,8 +130,10 @@ export default function EquipmentDetailPage() {
     const seen = new Set<string>();
     const deduped: typeof valid = [];
     for (const act of valid) {
-      const bId = act.bookingId || (act as any).booking?._id || (act as any).booking || act.id;
-      const key = `${bId}-${act.conditionReport?.type}`;
+      const cr = act.conditionReport;
+      const bId = act.bookingId || (act as any).booking?._id || (act as any).booking || act.entityId || 'general';
+      // Group strictly by booking session and report type (e.g. 1 pickup check & 1 return check per loan)
+      const key = `${bId}-${cr?.type}`;
       if (!seen.has(key)) {
         seen.add(key);
         deduped.push(act);
@@ -287,15 +289,34 @@ export default function EquipmentDetailPage() {
     new Date(b.endDateTime) > selectedStart
   ) : null;
 
+  // Owner check: whether logged-in user is the one who listed this item
+  const currentUserName = (clerkUser?.fullName || clerkUser?.firstName || '').toLowerCase().trim();
+  const isOwner = Boolean(
+    (currentClerkId && (
+      equipment.ownerId === currentClerkId || 
+      equipment.ownerClerkId === currentClerkId ||
+      (equipment as any).addedBy?._id === currentClerkId ||
+      (equipment as any).addedBy?.clerkId === currentClerkId
+    )) ||
+    (currentEmail && equipment.ownerEmail && currentEmail === equipment.ownerEmail.toLowerCase().trim()) ||
+    (currentUserName && equipment.ownerName && currentUserName === equipment.ownerName.toLowerCase().trim())
+  );
+
   const isAvailable = equipment.approvalStatus === 'APPROVED' && 
                       equipment.availabilityStatus !== 'MAINTENANCE' && 
                       equipment.availabilityStatus !== 'RETIRED' && 
                       !isOverdue && 
                       !approvedCollision &&
-                      !existingUserBooking;
+                      !existingUserBooking &&
+                      !isOwner;
 
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isOwner) {
+      setBookingError('You cannot borrow equipment that you listed.');
+      return;
+    }
+
     if (!purpose.trim()) {
       setBookingError('Please provide a brief statement of purpose.');
       return;
@@ -505,9 +526,15 @@ export default function EquipmentDetailPage() {
                           <span className="text-[#70706B]">{dateFormatted}</span>
                         </div>
 
-                        {cr.notes && (
+                        {cr.notes ? (
                           <p className="text-xs text-[#70706B] italic">
-                            "{cr.notes}"
+                            &ldquo;{cr.notes}&rdquo;
+                          </p>
+                        ) : (
+                          <p className="text-[11px] text-[#70706B]">
+                            {cr.type === 'PICKUP' 
+                              ? 'Initial handover inspection verified in good order.'
+                              : 'Return handover inspection verified in good order.'}
                           </p>
                         )}
 
@@ -638,32 +665,58 @@ export default function EquipmentDetailPage() {
           </div>
 
           {/* Steward Card */}
-          <div className="rounded-[28px] border border-[#E5E5E0] bg-white p-5 sm:p-6 shadow-2xs flex flex-wrap sm:flex-nowrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3.5 min-w-0">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={equipment.ownerAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'}
-                alt={equipment.ownerName}
-                className="w-12 h-12 rounded-full object-cover flex-shrink-0"
-              />
-              <div className="min-w-0">
-                <span className="text-xs text-[#70706B] block">Equipment Steward</span>
-                <h4 className="text-sm font-bold text-[#111110] truncate">
-                  {equipment.ownerName}
-                </h4>
-                <span className="text-xs text-[#1B7A42] font-semibold flex items-center gap-1 mt-0.5">
-                  <UserCheck className="w-3.5 h-3.5 flex-shrink-0" /> Verified Community Lender
-                </span>
-              </div>
-            </div>
+          {(() => {
+            const stewardAvatarUrl = (isOwner && clerkUser?.imageUrl)
+              ? clerkUser.imageUrl
+              : (equipment.ownerAvatar && !equipment.ownerAvatar.includes('photo-1534528741775-53994a69daeb'))
+              ? equipment.ownerAvatar
+              : (clerkUser?.imageUrl && (equipment.ownerName?.toLowerCase() === clerkUser.fullName?.toLowerCase() || equipment.ownerId === clerkUser.id))
+              ? clerkUser.imageUrl
+              : undefined;
 
-            <div className="text-left sm:text-right text-xs text-[#70706B] flex-shrink-0">
-              <span className="block font-medium">Condition</span>
-              <span className="badge-pill badge-available mt-1">
-                {equipment.currentCondition}
-              </span>
-            </div>
-          </div>
+            const stewardInitials = (equipment.ownerName || 'Campus Steward')
+              .split(' ')
+              .map(p => p[0])
+              .filter(Boolean)
+              .slice(0, 2)
+              .join('')
+              .toUpperCase() || 'TU';
+
+            return (
+              <div className="rounded-[28px] border border-[#E5E5E0] bg-white p-5 sm:p-6 shadow-2xs flex flex-wrap sm:flex-nowrap items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  {stewardAvatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={stewardAvatarUrl}
+                      alt={equipment.ownerName}
+                      className="w-12 h-12 rounded-full object-cover flex-shrink-0 border border-[#E5E5E0] shadow-2xs"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-[#111110] text-white flex items-center justify-center font-bold text-sm flex-shrink-0 shadow-2xs">
+                      {stewardInitials}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <span className="text-xs text-[#70706B] block">Equipment Steward</span>
+                    <h4 className="text-sm font-bold text-[#111110] truncate">
+                      {equipment.ownerName}
+                    </h4>
+                    <span className="text-xs text-[#1B7A42] font-semibold flex items-center gap-1 mt-0.5">
+                      <UserCheck className="w-3.5 h-3.5 flex-shrink-0" /> Verified Community Lender
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-left sm:text-right text-xs text-[#70706B] flex-shrink-0">
+                  <span className="block font-medium">Condition</span>
+                  <span className="badge-pill badge-available mt-1">
+                    {equipment.currentCondition}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
 
         </div>
 
@@ -677,7 +730,11 @@ export default function EquipmentDetailPage() {
                 <span className="text-[11px] uppercase font-bold tracking-wider text-[#70706B]">
                   Tezpur University Loan Request
                 </span>
-                {existingUserBooking ? (
+                {isOwner ? (
+                  <span className="badge-pill bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE] font-bold">
+                    ● Your Listed Equipment
+                  </span>
+                ) : existingUserBooking ? (
                   <span className="badge-pill bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA] font-bold">
                     ● {existingUserBooking.status === 'PENDING' ? 'Your Request Pending' : 'Your Active Loan'}
                   </span>
@@ -759,8 +816,29 @@ export default function EquipmentDetailPage() {
             ) : (
               <form onSubmit={handleBookingSubmit} className="space-y-4 pt-1">
                 
+                {/* Ownership Callout */}
+                {isOwner && (
+                  <div className="p-4 bg-[#EFF6FF] border border-[#BFDBFE] rounded-2xl text-xs text-[#1E40AF] space-y-1.5 shadow-2xs">
+                    <div className="flex items-center gap-2 font-bold text-xs sm:text-sm text-[#1D4ED8]">
+                      <UserCheck className="w-4 h-4 flex-shrink-0" />
+                      <span>You Listed This Equipment</span>
+                    </div>
+                    <p className="leading-relaxed text-[11px] sm:text-xs text-[#1E40AF]">
+                      You are the registered steward for this item. As the gear owner, you cannot borrow your own listing. You can track borrower checkouts and condition inspections in your dashboard.
+                    </p>
+                    <div className="pt-1">
+                      <Link
+                        href="/dashboard"
+                        className="inline-flex items-center gap-1 font-bold text-xs text-[#1D4ED8] hover:underline"
+                      >
+                        Manage in My Dashboard →
+                      </Link>
+                    </div>
+                  </div>
+                )}
+
                 {/* Active Loan Warning for Current User */}
-                {existingUserBooking && (
+                {!isOwner && existingUserBooking && (
                   <div className="p-4 bg-[#FEF2F2] border border-[#FECACA] rounded-2xl text-xs text-[#991B1B] space-y-2 animate-in fade-in shadow-2xs">
                     <div className="flex items-center gap-2 font-bold text-xs sm:text-sm text-[#DC2626]">
                       <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -967,28 +1045,30 @@ export default function EquipmentDetailPage() {
 
                 <button
                   type="submit"
-                  disabled={isSubmitting || !isAvailable || isDurationExceeded || Boolean(existingUserBooking)}
+                  disabled={isSubmitting || !isAvailable || isDurationExceeded || Boolean(existingUserBooking) || isOwner}
                   className={`w-full py-3.5 rounded-full text-xs sm:text-sm font-bold transition-all shadow-xs active:scale-98 ${
-                    isAvailable && !isDurationExceeded && !existingUserBooking
+                    isAvailable && !isDurationExceeded && !existingUserBooking && !isOwner
                       ? 'btn-primary'
                       : 'inline-flex items-center justify-center bg-[#EDEDEA] text-[#9C9C96] border border-[#E5E5E0] cursor-not-allowed'
                   }`}
                 >
                   {isSubmitting 
                     ? 'Submitting Request...' 
-                    : existingUserBooking
-                      ? existingUserBooking.status === 'PENDING'
-                        ? 'Pending Request Already Submitted'
-                        : 'Return Item Before Re-booking'
-                      : isDurationExceeded
-                        ? `Exceeds Max ${maxBorrowDays} Days`
-                        : isOverdue 
-                          ? 'Currently Overdue' 
-                          : approvedCollision 
-                            ? 'Selected Dates Unavailable' 
-                            : isAvailable 
-                              ? 'Submit Reservation Request ↗' 
-                              : 'Unavailable for Booking'}
+                    : isOwner
+                      ? 'You Own This Equipment'
+                      : existingUserBooking
+                        ? existingUserBooking.status === 'PENDING'
+                          ? 'Pending Request Already Submitted'
+                          : 'Return Item Before Re-booking'
+                        : isDurationExceeded
+                          ? `Exceeds Max ${maxBorrowDays} Days`
+                          : isOverdue 
+                            ? 'Currently Overdue' 
+                            : approvedCollision 
+                              ? 'Selected Dates Unavailable' 
+                              : isAvailable 
+                                ? 'Submit Reservation Request ↗' 
+                                : 'Unavailable for Booking'}
                 </button>
 
                 <p className="text-center text-[11px] text-[#70706B] pt-1">

@@ -21,6 +21,9 @@ async function requireUser(req, res, next) {
     let clientEmail = req.headers['x-user-email'] 
       ? decodeURIComponent(req.headers['x-user-email']) 
       : (req.body?.borrowerEmail || req.body?.email);
+    let clientAvatar = req.headers['x-user-avatar']
+      ? decodeURIComponent(req.headers['x-user-avatar'])
+      : (req.body?.avatarUrl || req.body?.userAvatar);
 
     if (!userId) {
       if (clientEmail || clientName) {
@@ -32,7 +35,7 @@ async function requireUser(req, res, next) {
 
     // If client email was not passed in headers (e.g. admin app direct token call),
     // fetch user profile directly from Clerk API to ensure role/email mapping is exact.
-    if (!clientEmail && clerkClient?.users) {
+    if ((!clientEmail || !clientAvatar) && clerkClient?.users) {
       try {
         const cu = await clerkClient.users.getUser(userId);
         if (cu) {
@@ -41,6 +44,9 @@ async function requireUser(req, res, next) {
           }
           if (!clientName) {
             clientName = [cu.firstName, cu.lastName].filter(Boolean).join(' ') || cu.username;
+          }
+          if (!clientAvatar && cu.imageUrl) {
+            clientAvatar = cu.imageUrl;
           }
         }
       } catch (err) {
@@ -60,6 +66,7 @@ async function requireUser(req, res, next) {
         clerkId: userId,
         email: clientEmail || `${userId}@placeholder.local`,
         name: clientName || 'Campus Borrower',
+        avatarUrl: clientAvatar,
       });
     } else {
       let needSave = false;
@@ -73,6 +80,10 @@ async function requireUser(req, res, next) {
       }
       if (clientEmail && (!user.email || user.email.includes('placeholder.local'))) {
         user.email = clientEmail;
+        needSave = true;
+      }
+      if (clientAvatar && user.avatarUrl !== clientAvatar) {
+        user.avatarUrl = clientAvatar;
         needSave = true;
       }
       if (needSave) {
