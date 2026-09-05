@@ -36,7 +36,7 @@ The platform is designed as a decoupled, micro-service architecture consisting o
 - **Student / Borrower Frontend (`frontend/` on `http://localhost:3000`)**: Next.js 14 client application with rich tactile styling, real-time availability calendar, date-range reservation builder, handover condition checklists, and user profile dashboard.
 - **Admin Command Center (`admin/` on `http://localhost:3001`)**: Dedicated administrative operations dashboard with dark frosted-glass aesthetics, Bento metrics, pending reservation moderation, equipment lifecycle control, Gemini AI visual damage arbitration, student accounts directory, and live visual audit trail.
 - **Backend REST API (`backend/` on `http://localhost:4000/api`)**: Node.js & Express REST API with MongoDB Atlas persistence, Clerk authentication sync, in-memory query caching, background overdue loan daemon, and automated Resend transactional email dispatcher.
-- **Cloud Infrastructure**: MongoDB Atlas for persistent storage, Cloudinary for high-res equipment and condition photos, Google Gemini 1.5 Flash for multimodal visual inspection, and Resend for transactional email delivery.
+- **Cloud Infrastructure**: MongoDB Atlas for persistent storage, Cloudinary for high-res equipment and condition photos, Google Gemini 3.5 Flash for multimodal visual inspection, and Resend for transactional email delivery.
 
 ---
 
@@ -314,7 +314,7 @@ All endpoints are hosted on `http://localhost:4000/api` with full CORS origin re
 | `POST` | `/api/bookings` | User | Create a new reservation request with conflict validation, duration check, and confirmation email. |
 | `PATCH` | `/api/bookings/:id/cancel` | User | Cancel a pending or approved reservation. |
 | `POST` | `/api/bookings/:id/pickup-condition` | User | Record pickup baseline photos and notes; transitions booking to `active`. |
-| `POST` | `/api/bookings/:id/return-condition` | User | Record return photos; triggers **Gemini 1.5 Flash** vision inspection; transitions booking to `returned`. |
+| `POST` | `/api/bookings/:id/return-condition` | User | Record return photos; triggers **Gemini 3.5 Flash** vision inspection; transitions booking to `returned`. |
 
 ### 3. Admin Endpoints (`/api/admin`)
 
@@ -426,7 +426,7 @@ CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
 GEMINI_API_KEY=your_gemini_api_key
-GEMINI_MODEL=gemini-1.5-flash
+GEMINI_MODEL=gemini-3.5-flash
 RESEND_API_KEY=re_your_resend_api_key
 RESEND_FROM_EMAIL=Tezpur University Equipment Desk <onboarding@resend.dev>
 PORTAL_URL=http://localhost:3000
