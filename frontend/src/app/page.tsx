@@ -73,7 +73,7 @@ export default function HomePage() {
   const faqs = [
     {
       question: 'How do I borrow equipment?',
-      answer: 'Simply browse the catalogue, choose your desired dates with our real-time availability calendar, and submit a reservation request. Once approved by the owner or steward, meet at Tezpur University, Assam for pickup.',
+      answer: 'Simply browse the catalog, choose your desired dates with our real-time availability calendar, and submit a reservation request. Once approved by the owner or steward, meet at Tezpur University, Assam for pickup.',
     },
     {
       question: 'How does custody verification work?',
@@ -105,14 +105,14 @@ export default function HomePage() {
           
           {/* Left Hero Column: Typography & CTAs */}
           <div className="lg:col-span-7 space-y-6">
-            <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#8E8E88] block">
-              Share &bull; Borrow &bull; Build Together
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F5F5F3] border border-[#E5E5E0] text-[11px] font-semibold text-[#70706B]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#1B7A42]" />
+              <span>Tezpur University Equipment Network</span>
             </span>
 
-            <h1 className="text-3xl sm:text-5xl lg:text-[56px] font-extrabold text-[#111110] leading-[1.06] tracking-tight">
-              Borrowing Stuff from <br className="hidden sm:inline" />
-              your community <br className="hidden sm:inline" />
-              made easier
+            <h1 className="text-3xl sm:text-5xl lg:text-[54px] font-extrabold text-[#111110] leading-[1.08] tracking-tight">
+              Campus equipment sharing, <br className="hidden sm:inline" />
+              made effortless.
             </h1>
 
             <p className="text-[#70706B] text-sm sm:text-base leading-relaxed max-w-lg">
@@ -124,7 +124,7 @@ export default function HomePage() {
                 href="/equipment" 
                 className="btn-primary !text-white px-6 py-3.5 rounded-full text-xs sm:text-sm font-bold inline-flex items-center gap-2 shadow-xs transition-transform active:scale-[0.98]"
               >
-                <span className="!text-white">Browse Full Catalog</span>
+                <span className="!text-white">Browse Catalog</span>
                 <ArrowRight className="w-3.5 h-3.5 !text-white" />
               </Link>
               <Link 
@@ -557,14 +557,15 @@ export default function HomePage() {
       <section id="how-it-works" className="space-y-6">
         
         <div className="space-y-1">
-          <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#8E8E88] block">
-            Get Started
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F5F5F3] border border-[#E5E5E0] text-[11px] font-semibold text-[#70706B]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#1B7A42]" />
+            <span>How It Works</span>
           </span>
           <h2 className="text-2xl sm:text-3xl font-bold text-[#111110] tracking-tight">
-            How to post yours
+            Share equipment in 3 simple steps
           </h2>
           <p className="text-xs sm:text-sm text-[#70706B]">
-            Share your unused equipment with the community in just a few steps.
+            Make your idle cameras, lab tools, or audio gear accessible to fellow campus researchers and students.
           </p>
         </div>
 
@@ -590,7 +591,7 @@ export default function HomePage() {
                   />
                 </div>
                 <div className="absolute top-3 right-3 bg-white px-2 py-0.5 rounded-full border border-[#E2E2DE] text-[9px] font-bold text-[#111110] shadow-xs">
-                  1 Photo / Angle
+                  Photo &amp; Specs
                 </div>
                 <Sparkles className="absolute bottom-3 left-3 w-4 h-4 text-[#A1A19A]" />
               </div>
@@ -598,10 +599,10 @@ export default function HomePage() {
 
             <div className="space-y-1.5">
               <h3 className="text-base font-bold text-[#111110]">
-                Click a photo
+                Photograph &amp; describe your gear
               </h3>
               <p className="text-xs text-[#70706B] leading-relaxed">
-                Add clear photos of your equipment and state all custody and condition details.
+                Snap clear photos, outline included accessories, and set your preferred loan duration.
               </p>
             </div>
           </div>
@@ -617,13 +618,13 @@ export default function HomePage() {
               <div className="relative w-full h-[150px] rounded-2xl bg-[#F6F6F3] border border-[#ECECE8] flex flex-col justify-center px-4 py-3 space-y-2 overflow-hidden">
                 <div className="bg-white rounded-xl p-2 border border-[#E2E2DE] shadow-xs space-y-1.5">
                   <div className="flex items-center justify-between text-[9px] text-[#70706B]">
-                    <span>Item Title</span>
+                    <span>Listing Review</span>
                     <span className="w-1.5 h-1.5 rounded-full bg-[#111110]" />
                   </div>
                   <div className="h-4 bg-[#F2F2EE] rounded-md w-3/4" />
                   <div className="flex items-center gap-1.5 pt-1">
-                    <span className="px-1.5 py-0.5 bg-[#EAEAE5] rounded text-[8px] text-[#70706B]">Category</span>
-                    <span className="px-1.5 py-0.5 bg-[#EAEAE5] rounded text-[8px] text-[#70706B]">Tezpur University, Assam</span>
+                    <span className="px-1.5 py-0.5 bg-[#EAEAE5] rounded text-[8px] text-[#70706B]">Department Lab</span>
+                    <span className="px-1.5 py-0.5 bg-[#EAEAE5] rounded text-[8px] text-[#70706B]">Tezpur Univ</span>
                   </div>
                 </div>
                 <Sparkles className="absolute top-2 right-3 w-4 h-4 text-[#A1A19A]" />
@@ -632,10 +633,10 @@ export default function HomePage() {
 
             <div className="space-y-1.5">
               <h3 className="text-base font-bold text-[#111110]">
-                Create a request
+                Quick verification check
               </h3>
               <p className="text-xs text-[#70706B] leading-relaxed">
-                Fill in the details and submit your equipment for listing in seconds.
+                Community stewards perform a fast safety check to ensure item details and custody are verified.
               </p>
             </div>
           </div>
@@ -653,8 +654,8 @@ export default function HomePage() {
                   <div className="w-8 h-8 rounded-full bg-[#E8F5EB] border border-[#A7F3D0] flex items-center justify-center">
                     <CheckCircle2 className="w-5 h-5 text-[#1B7A42]" />
                   </div>
-                  <span className="text-[11px] font-bold text-[#111110]">Approved!</span>
-                  <span className="text-[9px] text-[#70706B]">Now live in catalogue</span>
+                  <span className="text-[11px] font-bold text-[#111110]">Live on Catalog!</span>
+                  <span className="text-[9px] text-[#70706B]">Ready for student loans</span>
                 </div>
                 <Sparkles className="absolute top-3 right-4 w-4 h-4 text-[#A1A19A]" />
               </div>
@@ -662,10 +663,10 @@ export default function HomePage() {
 
             <div className="space-y-1.5">
               <h3 className="text-base font-bold text-[#111110]">
-                Our admin will verify it
+                Coordinated exchange &amp; return
               </h3>
               <p className="text-xs text-[#70706B] leading-relaxed">
-                We review your post to keep the community safe and reliable. Once approved, it goes live in the catalogue.
+                Borrowers reserve dates, meet on campus for condition sign-off, and return gear safely when done.
               </p>
             </div>
           </div>

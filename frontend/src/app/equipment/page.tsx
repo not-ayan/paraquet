@@ -23,7 +23,7 @@ import { apiClient } from '@/lib/api';
 import { Equipment } from '@/lib/types';
 import EquipmentCard from '@/components/EquipmentCard';
 
-export default function EquipmentCataloguePage() {
+export default function EquipmentCatalogPage() {
   const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -167,8 +167,9 @@ export default function EquipmentCataloguePage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-6 border-b border-[#E5E5E0]">
         <div className="space-y-1.5">
-          <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#8E8E88] block">
-            Equipment Catalog
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F5F5F3] border border-[#E5E5E0] text-[11px] font-semibold text-[#70706B]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#1B7A42]" />
+            <span>Equipment Catalog</span>
           </span>
           <h1 className="text-2xl sm:text-4xl font-extrabold text-[#111110] tracking-tight">
             Tezpur University Equipment Directory
