@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { apiFetch } from '../../../lib/api';
+import { IconAlertTriangle, IconCheckCircle, IconPackage, IconMapPin } from '../../icons';
 
 export default function PendingBookingsPage() {
   const { getToken } = useAuth();
@@ -51,14 +52,14 @@ export default function PendingBookingsPage() {
 
       {error && (
         <div className="error-banner">
-          <span>⚠️</span>
+          <IconAlertTriangle />
           <span>{error}</span>
         </div>
       )}
 
       {bookings.length === 0 && !error && (
         <div className="empty-state">
-          <div className="empty-icon">🎉</div>
+          <div className="empty-icon"><IconCheckCircle /></div>
           <div className="empty-title">All caught up!</div>
           <div className="empty-text">There are no pending booking requests waiting for approval.</div>
         </div>
@@ -85,11 +86,11 @@ export default function PendingBookingsPage() {
                         <img
                           src={b.equipment.images[0]}
                           alt={b.equipment.name}
-                          style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', border: '1px solid #e2e8f0' }}
+                          style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--border-subtle)' }}
                         />
                       ) : (
-                        <div style={{ width: 44, height: 44, borderRadius: 8, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>
-                          📦
+                        <div style={{ width: 44, height: 44, borderRadius: 8, background: 'var(--bg-surface-subtle)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', color: 'var(--text-muted)' }}>
+                          <IconPackage />
                         </div>
                       )}
                       <div>
@@ -116,7 +117,7 @@ export default function PendingBookingsPage() {
                   </td>
                   <td>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--text-secondary)' }}>
-                      📍 {b.location || 'Tezpur University, Assam'}
+                      <IconMapPin /> {b.location || 'Tezpur University, Assam'}
                     </span>
                   </td>
                   <td style={{ textAlign: 'right' }}>

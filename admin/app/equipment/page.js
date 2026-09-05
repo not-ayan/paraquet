@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { apiFetch } from '../../lib/api';
+import { IconAlertTriangle, IconCheckCircle, IconPackage } from '../icons';
 
 const AVAILABILITY_OPTIONS = ['available', 'booked', 'maintenance', 'retired'];
 
@@ -132,21 +133,21 @@ export default function AllEquipmentPage() {
 
       {error && (
         <div className="error-banner">
-          <span>⚠️</span>
+          <IconAlertTriangle />
           <span>{error}</span>
         </div>
       )}
 
       {successMsg && (
         <div className="success-banner">
-          <span>✓</span>
+          <IconCheckCircle />
           <span>{successMsg}</span>
         </div>
       )}
 
       {filteredItems.length === 0 && !error && (
         <div className="empty-state">
-          <div className="empty-icon">📦</div>
+          <div className="empty-icon"><IconPackage /></div>
           <div className="empty-title">No equipment found</div>
           <div className="empty-text">No equipment matches your current search or filter criteria.</div>
         </div>
@@ -177,8 +178,8 @@ export default function AllEquipmentPage() {
                           style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--border-subtle)' }}
                         />
                       ) : (
-                        <div style={{ width: 44, height: 44, borderRadius: 8, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>
-                          📦
+                        <div style={{ width: 44, height: 44, borderRadius: 8, background: 'var(--bg-surface-subtle)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', color: 'var(--text-muted)' }}>
+                          <IconPackage />
                         </div>
                       )}
                       <div>

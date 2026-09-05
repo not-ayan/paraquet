@@ -3,18 +3,33 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { apiFetch } from '../../lib/api';
+import {
+  IconAlertTriangle,
+  IconCalendar,
+  IconCheckCircle,
+  IconXCircle,
+  IconUpload,
+  IconDownload,
+  IconPackage,
+  IconRefresh,
+  IconFileText,
+  IconUser,
+  IconCamera,
+  IconCpu,
+  IconInfo,
+} from '../icons';
 
 const EVENT_TYPE_ICONS = {
-  booking_requested: '📅',
-  booking_approved: '✅',
-  booking_rejected: '❌',
-  pickup_recorded: '📤',
-  return_recorded: '📥',
-  condition_flagged: '⚠️',
-  equipment_submitted: '📦',
-  equipment_approved: '🎉',
-  equipment_rejected: '🚫',
-  equipment_status_changed: '🔄',
+  booking_requested: IconCalendar,
+  booking_approved: IconCheckCircle,
+  booking_rejected: IconXCircle,
+  pickup_recorded: IconUpload,
+  return_recorded: IconDownload,
+  condition_flagged: IconAlertTriangle,
+  equipment_submitted: IconPackage,
+  equipment_approved: IconCheckCircle,
+  equipment_rejected: IconXCircle,
+  equipment_status_changed: IconRefresh,
 };
 
 const FILTER_TYPES = [
@@ -58,9 +73,7 @@ export default function ActivityLogPage() {
     <div className="container">
       <div className="page-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span className="badge" style={{ background: '#e0f2fe', color: '#0369a1', borderColor: '#bae6fd' }}>
-            System Audit Trail
-          </span>
+          <span className="brand-tag">System Audit Trail</span>
           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
             {logs.length} logged events
           </span>
@@ -77,21 +90,22 @@ export default function ActivityLogPage() {
             <option key={t.value} value={t.value}>{t.label}</option>
           ))}
         </select>
-        <button className="btn secondary" onClick={load} disabled={loading} style={{ marginLeft: 'auto' }}>
-          {loading ? 'Refreshing...' : '↻ Refresh Log'}
+        <button className="btn secondary" onClick={load} disabled={loading} style={{ marginLeft: 'auto', gap: 6 }}>
+          <IconRefresh />
+          {loading ? 'Refreshing...' : 'Refresh Log'}
         </button>
       </div>
 
       {error && (
         <div className="error-banner">
-          <span>⚠️</span>
+          <IconAlertTriangle />
           <span>{error}</span>
         </div>
       )}
 
       {logs.length === 0 && !error && !loading && (
         <div className="empty-state">
-          <div className="empty-icon">📜</div>
+          <div className="empty-icon"><IconFileText /></div>
           <div className="empty-title">No activity events recorded</div>
           <div className="empty-text">No system events matched the selected filter criteria.</div>
         </div>
@@ -99,7 +113,7 @@ export default function ActivityLogPage() {
 
       <div className="audit-list">
         {logs.map((log) => {
-          const icon = EVENT_TYPE_ICONS[log.type] || '📌';
+          const EventIcon = EVENT_TYPE_ICONS[log.type] || IconInfo;
           
           // Resolve inspection photos
           const photos = log.conditionReport?.photos?.length
@@ -141,20 +155,20 @@ export default function ActivityLogPage() {
             <div key={log._id} className="audit-item">
               <div className="audit-header">
                 <div className="audit-left">
-                  <div className="audit-icon">{icon}</div>
+                  <div className="audit-icon"><EventIcon /></div>
                   <div className="audit-content">
                     <div className="audit-msg">
                       {log.message || log.type.replace(/_/g, ' ')}
                     </div>
                     <div className="audit-meta">
                       {log.user && (
-                        <span>
-                          👤 <strong>{log.user.name || log.user.email}</strong>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <IconUser /> <strong>{log.user.name || log.user.email}</strong>
                         </span>
                       )}
                       {log.equipment && (
-                        <span>
-                          &bull; 📦 {log.equipment.name}
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          &bull; <IconPackage /> {log.equipment.name}
                         </span>
                       )}
                       <span className="brand-tag" style={{ fontSize: '0.62rem' }}>
@@ -196,7 +210,7 @@ export default function ActivityLogPage() {
               {photos && photos.length > 0 && (
                 <div className="audit-media-section">
                   <div className="audit-media-label">
-                    <span>📷</span>
+                    <IconCamera />
                     <span>Handover Evidence Photos ({photos.length})</span>
                   </div>
                   <div className="photos">
@@ -220,7 +234,7 @@ export default function ActivityLogPage() {
                 <div className={`audit-ai-banner ${isFlagged ? 'flagged' : 'verified'}`}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
                     <div style={{ fontWeight: 800, fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span>🤖</span>
+                      <IconCpu />
                       <span>Gemini Vision AI Audit Review</span>
                     </div>
                     {aiAnalysis?.damageType && aiAnalysis.damageType !== 'none' && (

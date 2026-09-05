@@ -3,6 +3,7 @@ const { User, Equipment, Booking, ActivityLog } = require('../models');
 const { requireUser, requireAdmin } = require('../middleware/auth');
 const { moveToApproved } = require('../services/cloudinary');
 const memoryCache = require('../lib/cache');
+const { csvRow } = require('../lib/csv');
 const {
   sendBookingApprovedEmail,
   sendBookingRejectedEmail,
@@ -349,4 +350,69 @@ router.get('/activity', async (req, res, next) => {
   }
 });
  
+// GET /api/admin/export/csv — full data export as one CSV file: users,
+// activity log, and equipment (each as its own section, since they don't
+// share a column schema). Meant for offline reporting/backup, not pagination.
+router.get('/export/csv', async (req, res, next) => {
+  try {
+    const [users, activity, equipment] = await Promise.all([
+      User.find().sort({ createdAt: -1 }).lean(),
+      ActivityLog.find().populate('user equipment booking').sort({ createdAt: -1 }).lean(),
+      Equipment.find().populate('addedBy').sort({ createdAt: -1 }).lean(),
+    ]);
+
+    let csv = '';
+
+    csv += csvRow(['USERS']);
+    csv += csvRow(['ID', 'Name', 'Email', 'Role', 'Phone', 'Created At']);
+    for (const u of users) {
+      csv += csvRow([u._id, u.name || '', u.email, u.role, u.phone || '', u.createdAt]);
+    }
+    csv += '\r\n';
+
+    csv += csvRow(['ACTIVITY LOG']);
+    csv += csvRow(['ID', 'Type', 'User', 'Equipment', 'Booking ID', 'Message', 'Created At']);
+    for (const log of activity) {
+      csv += csvRow([
+        log._id,
+        log.type,
+        log.user ? log.user.name || log.user.email : '',
+        log.equipment ? log.equipment.name : '',
+        log.booking?._id || log.booking || '',
+        log.message || '',
+        log.createdAt,
+      ]);
+    }
+    csv += '\r\n';
+
+    csv += csvRow(['EQUIPMENT']);
+    csv += csvRow([
+      'ID', 'Name', 'Category', 'Quantity', 'Condition', 'Condition Notes',
+      'Approval Status', 'Availability', 'Max Borrow Days', 'Added By', 'Created At',
+    ]);
+    for (const e of equipment) {
+      csv += csvRow([
+        e._id,
+        e.name,
+        e.category || '',
+        e.quantity,
+        e.condition?.status || '',
+        e.condition?.notes || '',
+        e.approvalStatus,
+        e.availability,
+        e.maxBorrowDays,
+        e.addedBy ? e.addedBy.name || e.addedBy.email : '',
+        e.createdAt,
+      ]);
+    }
+
+    const filename = `admin-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(csv);
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

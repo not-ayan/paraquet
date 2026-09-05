@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { apiFetch } from '../../../lib/api';
+import { IconAlertTriangle, IconShieldCheck, IconUpload, IconDownload, IconCpu } from '../../icons';
 
 export default function FlaggedBookingsPage() {
   const { getToken } = useAuth();
@@ -57,14 +58,14 @@ export default function FlaggedBookingsPage() {
 
       {error && (
         <div className="error-banner">
-          <span>⚠️</span>
+          <IconAlertTriangle />
           <span>{error}</span>
         </div>
       )}
 
       {bookings.length === 0 && !error && (
         <div className="empty-state">
-          <div className="empty-icon">🛡️</div>
+          <div className="empty-icon"><IconShieldCheck /></div>
           <div className="empty-title">All equipment clear!</div>
           <div className="empty-text">No active returns flagged with damage or condition discrepancies.</div>
         </div>
@@ -119,7 +120,7 @@ export default function FlaggedBookingsPage() {
               {/* Pickup Inspection Column */}
               <div className="inspection-col">
                 <div className="inspection-heading">
-                  <span>📤</span>
+                  <IconUpload />
                   <span>Pickup Issue Evidence (Baseline)</span>
                 </div>
                 <div className="photos">
@@ -138,7 +139,7 @@ export default function FlaggedBookingsPage() {
                   </p>
                 )}
                 {picAi?.detailedSummary && (
-                  <div style={{ marginTop: 10, padding: 10, background: '#ffffff', borderRadius: 8, fontSize: '0.8rem', border: '1px solid #e2e8f0', color: 'var(--text-secondary)' }}>
+                  <div style={{ marginTop: 10, padding: 10, background: 'var(--bg-surface)', borderRadius: 8, fontSize: '0.8rem', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
                     <strong style={{ color: 'var(--text-primary)' }}>AI Baseline Note:</strong> {picAi.detailedSummary}
                   </div>
                 )}
@@ -147,7 +148,7 @@ export default function FlaggedBookingsPage() {
               {/* Return Inspection Column */}
               <div className="inspection-col">
                 <div className="inspection-heading">
-                  <span>📥</span>
+                  <IconDownload />
                   <span>Return Verification Photo</span>
                 </div>
                 <div className="photos">
@@ -172,7 +173,7 @@ export default function FlaggedBookingsPage() {
             {retAi && (
               <div className={`ai-audit-card ${isStructural ? 'structural' : isCosmetic ? 'cosmetic' : 'intact'}`}>
                 <div className="ai-audit-header">
-                  <span>🤖</span>
+                  <IconCpu />
                   <span>Gemini Vision AI Discrepancy & Damage Analysis</span>
                 </div>
 

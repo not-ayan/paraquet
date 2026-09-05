@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { apiFetch } from '../../lib/api';
+import { IconAlertTriangle, IconUsers, IconInfo } from '../icons';
 
 export default function UsersPage() {
   const { getToken } = useAuth();
@@ -49,14 +50,14 @@ export default function UsersPage() {
 
       {error && (
         <div className="error-banner">
-          <span>⚠️</span>
+          <IconAlertTriangle />
           <span>{error}</span>
         </div>
       )}
 
       {users.length === 0 && !error && (
         <div className="empty-state">
-          <div className="empty-icon">👥</div>
+          <div className="empty-icon"><IconUsers /></div>
           <div className="empty-title">No users found</div>
           <div className="empty-text">No accounts matched your search query "{q}".</div>
         </div>
@@ -92,8 +93,8 @@ export default function UsersPage() {
                             width: 36,
                             height: 36,
                             borderRadius: '50%',
-                            background: u.role === 'admin' ? '#ede9fe' : '#e2e8f0',
-                            color: u.role === 'admin' ? '#6d28d9' : '#475569',
+                            background: u.role === 'admin' ? 'var(--border-strong)' : 'var(--bg-surface-subtle)',
+                            color: u.role === 'admin' ? 'var(--text-primary)' : 'var(--text-secondary)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -144,7 +145,7 @@ export default function UsersPage() {
         alignItems: 'center',
         gap: 10
       }}>
-        <span>💡</span>
+        <IconInfo />
         <span>
           <strong>Admin Access Control:</strong> To promote or demote an account, update the <code>role</code> property in your database. Self-service role promotion is disabled by design.
         </span>
