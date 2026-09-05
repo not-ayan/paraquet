@@ -229,6 +229,11 @@
   padding-right: 8px;
 }
 
+/* Input with icon on left */
+.input-icon-left {
+  padding-left: 44px !important;
+}
+
 /* Minimal Frosted Pill Badge */
 .badge-pill {
   display: inline-flex;

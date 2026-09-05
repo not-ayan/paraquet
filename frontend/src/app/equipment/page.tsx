@@ -325,13 +325,13 @@ export default function EquipmentCatalogPage() {
           
           {/* Search Input */}
           <div className="md:col-span-6 relative">
-            <Search className="w-4 h-4 text-[#70706B] absolute left-4 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-[#70706B] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search equipment by name, keywords, or Tezpur University lab..."
-              className="input-paraquet pl-10 pr-4 h-[46px] rounded-2xl text-xs sm:text-sm font-medium"
+              className="input-paraquet input-icon-left !pl-11 pr-4 h-[46px] rounded-2xl text-xs sm:text-sm font-medium"
             />
           </div>
 
