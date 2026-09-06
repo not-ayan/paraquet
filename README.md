@@ -13,7 +13,7 @@ The platform is designed as a decoupled, micro-service architecture consisting o
 ```
 ┌──────────────────────────────────────┐       ┌──────────────────────────────────────┐
 │  Student / Borrower Portal (:3000)   │       │     Admin Command Center (:3001)     │
-│   Next.js 14 App Router, TypeScript  │       │   Next.js 14, Dark Frosted Glass UI  │
+│   Next.js 16 App Router, TypeScript  │       │   Next.js 14, Dark Frosted Glass UI  │
 │   Browse, Reserve, Return, Calendar  │       │ Moderation, AI Arbitration, Logs, Users│
 └──────────────────┬───────────────────┘       └──────────────────┬───────────────────┘
                    │                                              │
