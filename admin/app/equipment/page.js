@@ -39,6 +39,7 @@ export default function AllEquipmentPage() {
 
   async function updateAvailability(id, availability) {
     setSavingId(id);
+    setError(null);
     try {
       const token = await getToken();
       const updated = await apiFetch(`/api/equipment/${id}`, {
@@ -46,7 +47,14 @@ export default function AllEquipmentPage() {
         token,
         body: JSON.stringify({ availability }),
       });
-      setItems((prev) => prev.map((i) => (i._id === id ? updated : i)));
+      setItems((prev) =>
+        prev.map((i) =>
+          i._id === id ? { ...i, ...updated, availability: updated?.availability || availability } : i
+        )
+      );
+      const itemName = items.find((x) => x._id === id)?.name || 'Equipment';
+      setSuccessMsg(`Updated status for "${itemName}" to ${availability}.`);
+      setTimeout(() => setSuccessMsg(null), 3500);
     } catch (err) {
       setError(err.message);
     } finally {

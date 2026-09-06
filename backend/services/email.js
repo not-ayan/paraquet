@@ -8,17 +8,17 @@ const portalUrl = process.env.PORTAL_URL || 'http://localhost:3000';
 const resend = new Resend(apiKey);
 
 /**
- * Clean, branded transactional HTML email template wrapper
- * Follows Paraquet studio aesthetic: #F5F5F3 canvas, #FFFFFF card, #111110 typography, #E5E5E0 borders
+ * Clean, responsive transactional HTML email template wrapper
+ * Optimised for all screen sizes, high-DPI mobile displays, and Gmail/Apple Mail dark modes.
  */
 function renderEmailLayout({ title, badge, badgeColor, badgeBg, greeting, message, details = [], ctaText, ctaUrl, alertBox }) {
   const detailsHtml = details.length > 0 ? `
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 22px 0; background-color: #F8F8F6; border-radius: 16px; border: 1px solid #EAEAE5; overflow: hidden;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 20px 0; background-color: #F8F8F6; border-radius: 14px; border: 1px solid #EAEAE5; overflow: hidden;">
       <tbody>
         ${details.map(([label, value], idx) => `
           <tr style="${idx !== details.length - 1 ? 'border-bottom: 1px solid #ECECE8;' : ''}">
-            <td style="padding: 12px 18px; font-size: 12px; color: #70706B; font-weight: 600; width: 38%; vertical-align: middle;">${label}</td>
-            <td style="padding: 12px 18px; font-size: 13px; color: #111110; font-weight: 700; vertical-align: middle;">${value}</td>
+            <td class="table-cell-label" style="padding: 10px 14px; font-size: 12px; color: #70706B; font-weight: 600; width: 36%; vertical-align: middle;">${label}</td>
+            <td class="table-cell-value" style="padding: 10px 14px; font-size: 12.5px; color: #111110; font-weight: 700; vertical-align: middle; word-break: break-word;">${value}</td>
           </tr>
         `).join('')}
       </tbody>
@@ -26,15 +26,15 @@ function renderEmailLayout({ title, badge, badgeColor, badgeBg, greeting, messag
   ` : '';
 
   const alertHtml = alertBox ? `
-    <div style="margin: 20px 0; padding: 16px; border-radius: 14px; background-color: ${alertBox.bg || '#FFFBEB'}; border: 1px solid ${alertBox.border || '#FDE68A'}; color: ${alertBox.color || '#92400E'}; font-size: 13px; line-height: 1.55;">
-      <div style="font-weight: 700; margin-bottom: 4px; font-size: 13px;">${alertBox.title || 'Notice'}</div>
+    <div class="alert-box" style="margin: 18px 0; padding: 14px 16px; border-radius: 12px; background-color: ${alertBox.bg || '#FFFBEB'}; border: 1px solid ${alertBox.border || '#FDE68A'}; color: ${alertBox.color || '#92400E'}; font-size: 12.5px; line-height: 1.55;">
+      <div style="font-weight: 700; margin-bottom: 3px; font-size: 12.5px;">${alertBox.title || 'Notice'}</div>
       <div style="font-size: 12px; opacity: 0.95;">${alertBox.text}</div>
     </div>
   ` : '';
 
   const ctaHtml = ctaText && ctaUrl ? `
-    <div style="margin: 28px 0 12px 0; text-align: center;">
-      <a href="${ctaUrl}" style="background-color: #111110; color: #FFFFFF !important; padding: 13px 28px; border-radius: 9999px; text-decoration: none; font-size: 13px; font-weight: 700; display: inline-block; letter-spacing: -0.01em; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+    <div style="margin: 24px 0 10px 0; text-align: center;">
+      <a href="${ctaUrl}" class="cta-button" style="background-color: #111110; color: #FFFFFF !important; padding: 12px 26px; border-radius: 9999px; text-decoration: none; font-size: 13px; font-weight: 700; display: inline-block; letter-spacing: -0.01em;">
         ${ctaText} &rarr;
       </a>
     </div>
@@ -42,75 +42,153 @@ function renderEmailLayout({ title, badge, badgeColor, badgeBg, greeting, messag
 
   return `
     <!DOCTYPE html>
-    <html lang="en">
+    <html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="color-scheme" content="light dark">
+        <meta name="supported-color-schemes" content="light dark">
         <title>${title}</title>
+        <!--[if mso]>
+        <noscript>
+          <xml>
+            <o:OfficeDocumentSettings>
+              <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+          </xml>
+        </noscript>
+        <![endif]-->
+        <style>
+          :root {
+            color-scheme: light dark;
+            supported-color-schemes: light dark;
+          }
+          * {
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+          }
+          body {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            min-width: 100% !important;
+          }
+          @media only screen and (max-width: 580px) {
+            .email-outer-td {
+              padding: 12px 8px !important;
+            }
+            .email-container {
+              width: 100% !important;
+              max-width: 100% !important;
+              border-radius: 18px !important;
+            }
+            .email-header {
+              padding: 16px 18px !important;
+            }
+            .email-body {
+              padding: 22px 18px 20px 18px !important;
+            }
+            .email-title {
+              font-size: 19px !important;
+              line-height: 1.25 !important;
+            }
+            .email-footer {
+              padding: 16px 18px !important;
+              font-size: 10.5px !important;
+            }
+            .table-cell-label {
+              width: 40% !important;
+              padding: 9px 10px !important;
+              font-size: 11px !important;
+            }
+            .table-cell-value {
+              padding: 9px 10px !important;
+              font-size: 11.5px !important;
+            }
+            .brand-tag {
+              font-size: 9.5px !important;
+              padding: 2.5px 7px !important;
+            }
+            .cta-button {
+              width: 100% !important;
+              box-sizing: border-box !important;
+              padding: 12px 16px !important;
+              text-align: center !important;
+            }
+          }
+        </style>
       </head>
-      <body style="margin: 0; padding: 32px 16px; background-color: #F5F5F3; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color: #111110; -webkit-font-smoothing: antialiased;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width: 560px; margin: 0 auto; background-color: #FFFFFF; border-radius: 24px; border: 1px solid #E5E5E0; overflow: hidden; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);">
-          
-          <!-- Header Bar -->
+      <body style="margin: 0; padding: 0; background-color: #F5F5F3; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color: #111110; -webkit-font-smoothing: antialiased;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #F5F5F3; width: 100%; margin: 0; padding: 0;">
           <tr>
-            <td style="padding: 24px 32px 20px 32px; border-bottom: 1px solid #F0F0EC;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <td class="email-outer-td" align="center" style="padding: 28px 12px;">
+              
+              <!-- Container Card -->
+              <table role="presentation" class="email-container" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 540px; width: 100%; margin: 0 auto; background-color: #FFFFFF; border-radius: 22px; border: 1px solid #E5E5E0; overflow: hidden; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);">
+                
+                <!-- Header Bar -->
                 <tr>
-                  <td align="left" style="vertical-align: middle;">
-                    <span style="font-size: 20px; font-weight: 800; color: #111110; letter-spacing: -0.03em; text-decoration: none;">
-                      paraquet
-                    </span>
-                  </td>
-                  <td align="right" style="vertical-align: middle;">
-                    <span style="display: inline-block; padding: 3px 10px; border-radius: 9999px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; background-color: #F5F5F3; color: #70706B; border: 1px solid #E5E5E0;">
-                      Tezpur University
-                    </span>
+                  <td class="email-header" style="padding: 20px 26px 18px 26px; border-bottom: 1px solid #F0F0EC;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td align="left" style="vertical-align: middle;">
+                          <span style="font-size: 19px; font-weight: 800; color: #111110; letter-spacing: -0.03em; line-height: 1; text-decoration: none; display: inline-block;">
+                            paraquet
+                          </span>
+                        </td>
+                        <td align="right" style="vertical-align: middle; white-space: nowrap;">
+                          <span class="brand-tag" style="display: inline-block; padding: 3px 9px; border-radius: 9999px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; background-color: #F5F5F3; color: #70706B; border: 1px solid #E5E5E0; white-space: nowrap;">
+                            Tezpur Univ
+                          </span>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
+
+                <!-- Main Body -->
+                <tr>
+                  <td class="email-body" style="padding: 26px 26px 24px 26px;">
+                    ${badge ? `
+                      <div style="margin-bottom: 12px;">
+                        <span style="display: inline-block; padding: 3.5px 11px; border-radius: 9999px; font-size: 11px; font-weight: 700; letter-spacing: 0.01em; background-color: ${badgeBg || '#E8F5EB'}; color: ${badgeColor || '#1B7A42'}; border: 1px solid rgba(0,0,0,0.05); white-space: nowrap;">
+                          ${badge}
+                        </span>
+                      </div>
+                    ` : ''}
+
+                    <h1 class="email-title" style="margin: 0 0 12px 0; font-size: 20px; font-weight: 800; color: #111110; letter-spacing: -0.025em; line-height: 1.28;">
+                      ${title}
+                    </h1>
+
+                    ${greeting ? `<p style="margin: 0 0 10px 0; font-size: 13.5px; font-weight: 600; color: #3A3A36;">Hello ${greeting},</p>` : ''}
+
+                    <p style="margin: 0 0 16px 0; font-size: 13px; line-height: 1.6; color: #555550;">
+                      ${message}
+                    </p>
+
+                    ${alertHtml}
+                    ${detailsHtml}
+                    ${ctaHtml}
+                  </td>
+                </tr>
+
+                <!-- Footer -->
+                <tr>
+                  <td class="email-footer" style="padding: 18px 26px; background-color: #FAFAF8; border-top: 1px solid #F0F0EC; font-size: 11px; line-height: 1.55; color: #8E8E88; text-align: center;">
+                    <p style="margin: 0 0 4px 0; font-weight: 600; color: #70706B;">
+                      Tezpur University Equipment Desk &bull; Assam
+                    </p>
+                    <p style="margin: 0; color: #A1A19A; font-size: 10px;">
+                      Automated notification from the Paraquet campus network.
+                    </p>
+                  </td>
+                </tr>
+
               </table>
             </td>
           </tr>
-
-          <!-- Main Body -->
-          <tr>
-            <td style="padding: 32px 32px 28px 32px;">
-              ${badge ? `
-                <div style="margin-bottom: 14px;">
-                  <span style="display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 11px; font-weight: 700; letter-spacing: 0.01em; background-color: ${badgeBg || '#E8F5EB'}; color: ${badgeColor || '#1B7A42'}; border: 1px solid rgba(0,0,0,0.05);">
-                    ${badge}
-                  </span>
-                </div>
-              ` : ''}
-
-              <h1 style="margin: 0 0 14px 0; font-size: 21px; font-weight: 800; color: #111110; letter-spacing: -0.025em; line-height: 1.25;">
-                ${title}
-              </h1>
-
-              ${greeting ? `<p style="margin: 0 0 10px 0; font-size: 14px; font-weight: 600; color: #40403C;">Hello ${greeting},</p>` : ''}
-
-              <p style="margin: 0 0 16px 0; font-size: 13.5px; line-height: 1.6; color: #555550;">
-                ${message}
-              </p>
-
-              ${alertHtml}
-              ${detailsHtml}
-              ${ctaHtml}
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="padding: 20px 32px; background-color: #FAFAF8; border-top: 1px solid #F0F0EC; font-size: 11px; line-height: 1.55; color: #8E8E88; text-align: center;">
-              <p style="margin: 0 0 6px 0; font-weight: 600; color: #70706B;">
-                Tezpur University Equipment Desk &bull; Napaam, Tezpur, Assam 784028
-              </p>
-              <p style="margin: 0; color: #A1A19A;">
-                Automated notification from the Paraquet campus network. Please do not reply directly to this email.
-              </p>
-            </td>
-          </tr>
-
         </table>
       </body>
     </html>

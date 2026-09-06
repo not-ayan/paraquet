@@ -32,3 +32,6 @@ Thumbs.db
 .agents
 .claude/
 skills-lock.json
+frontend/CLAUDE.md
+frontend/AGENTS.md
+design.md

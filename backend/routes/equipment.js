@@ -320,6 +320,40 @@ router.patch('/:id', requireUser, async (req, res, next) => {
       }
     }
 
+    const rawAvailability = req.body.availability !== undefined ? req.body.availability : req.body.status;
+    if (rawAvailability !== undefined) {
+      const validStatuses = ['available', 'booked', 'maintenance', 'retired'];
+      const normalizedStatus = sanitizeString(rawAvailability, 30).toLowerCase();
+      if (validStatuses.includes(normalizedStatus)) {
+        const previousValue = item.availability || 'available';
+        if (previousValue !== normalizedStatus) {
+          item.availability = normalizedStatus;
+          const rawUserName = req.headers['x-user-name'];
+          const authorName = rawUserName 
+            ? sanitizeString(decodeURIComponent(rawUserName), 100) 
+            : (req.dbUser?.name || 'Administrator');
+          const historyRecord = {
+            previousValue,
+            newValue: normalizedStatus,
+            reason: sanitizeString(req.body.reason, 500) || 'Updated via Admin Console',
+            changedAt: new Date(),
+            changedBy: req.dbUser?._id,
+            changedByName: authorName,
+          };
+          if (!Array.isArray(item.statusHistory)) {
+            item.statusHistory = [];
+          }
+          item.statusHistory.unshift(historyRecord);
+          await ActivityLog.create({
+            user: req.dbUser._id,
+            type: 'equipment_status_changed',
+            equipment: item._id,
+            message: `Equipment status changed from ${previousValue.toUpperCase()} to ${normalizedStatus.toUpperCase()}: "${historyRecord.reason}"`,
+          });
+        }
+      }
+    }
+
     await item.save();
     memoryCache.clearPrefix('equipment:');
     res.json(item);
