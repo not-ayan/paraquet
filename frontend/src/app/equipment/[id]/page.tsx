@@ -575,17 +575,6 @@ export default function EquipmentDetailPage() {
                   WEB-C08
                 </span>
               </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setStatusModalError(null);
-                  setIsStatusModalOpen(true);
-                }}
-                className="btn-secondary text-xs py-1.5 px-3 rounded-full"
-              >
-                + Update Status
-              </button>
             </div>
 
             {equipment.statusHistory && equipment.statusHistory.length > 0 ? (
