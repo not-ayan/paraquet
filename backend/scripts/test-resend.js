@@ -87,6 +87,28 @@ async function testAllTemplates() {
     note: 'Minor scratch on side body verified. Cleaned and tested.',
   });
   console.log('7. Condition Resolved Email result:', r7.success ? `Delivered id=${r7.id}` : r7.error);
+
+  // 8. Equipment Submitted
+  const r8 = await emailService.sendEquipmentSubmittedEmail({
+    user: mockUser,
+    equipment: mockEquipment,
+  });
+  console.log('8. Equipment Submitted Email result:', r8.success ? `Delivered id=${r8.id}` : r8.error);
+
+  // 9. Equipment Approved
+  const r9 = await emailService.sendEquipmentApprovedEmail({
+    user: mockUser,
+    equipment: mockEquipment,
+  });
+  console.log('9. Equipment Approved Email result:', r9.success ? `Delivered id=${r9.id}` : r9.error);
+
+  // 10. Equipment Rejected
+  const r10 = await emailService.sendEquipmentRejectedEmail({
+    user: mockUser,
+    equipment: mockEquipment,
+    reason: 'Photo lighting is too dim. Please upload a clear photo of the lens serial number.',
+  });
+  console.log('10. Equipment Rejected Email result:', r10.success ? `Delivered id=${r10.id}` : r10.error);
 }
 
 testAllTemplates();

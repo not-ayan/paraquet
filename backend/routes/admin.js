@@ -8,6 +8,8 @@ const {
   sendBookingApprovedEmail,
   sendBookingRejectedEmail,
   sendConditionResolvedEmail,
+  sendEquipmentApprovedEmail,
+  sendEquipmentRejectedEmail,
 } = require('../services/email');
 const { checkAndNotifyOverdueBookings } = require('../services/overdue');
 const {
@@ -97,14 +99,21 @@ router.patch('/equipment/:id/approve', async (req, res, next) => {
 
     item.approvalStatus = 'approved';
     await item.save();
+    await item.populate('addedBy');
  
     if (item.addedBy) {
       await ActivityLog.create({
-        user: item.addedBy,
+        user: item.addedBy._id || item.addedBy,
         type: 'equipment_approved',
         equipment: item._id,
         message: `${item.name} was approved`,
       });
+
+      // Send approval confirmation email to the equipment steward
+      sendEquipmentApprovedEmail({
+        user: item.addedBy,
+        equipment: item,
+      }).catch((err) => console.warn('[Email] Error sending equipment approved email:', err.message));
     }
     memoryCache.clearPrefix('equipment:');
     res.json(item);
@@ -128,14 +137,22 @@ router.patch('/equipment/:id/reject', async (req, res, next) => {
     item.approvalStatus = 'rejected';
     item.rejectionReason = reason || undefined;
     await item.save();
+    await item.populate('addedBy');
  
     if (item.addedBy) {
       await ActivityLog.create({
-        user: item.addedBy,
+        user: item.addedBy._id || item.addedBy,
         type: 'equipment_rejected',
         equipment: item._id,
         message: `${item.name} was rejected${reason ? `: ${reason}` : ''}`,
       });
+
+      // Send rejection notification email with reason to the equipment steward
+      sendEquipmentRejectedEmail({
+        user: item.addedBy,
+        equipment: item,
+        reason,
+      }).catch((err) => console.warn('[Email] Error sending equipment rejected email:', err.message));
     }
     memoryCache.clearPrefix('equipment:');
     res.json(item);

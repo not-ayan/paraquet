@@ -93,7 +93,7 @@ The Admin Command Center is a standalone Next.js 14 portal purpose-built for lab
 ### Core Modules & Capabilities:
 
 1. **Header & Navigation (`AdminNav.js`)**:
-   - Frosted dark glass bar (`rgba(15, 23, 42, 0.94)`) with backdrop blur.
+   - Frosted dark glass bar (`rgba(15, 23, 42, 0.94)`).
    - Live system pulse dot indicator and quick-jump button to the Student Portal (`http://localhost:3000`).
    - Active route detection and Clerk profile controls.
 

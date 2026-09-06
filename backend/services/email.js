@@ -526,6 +526,116 @@ async function sendConditionResolvedEmail({ user, equipment, booking, damageFee 
   });
 }
 
+/**
+ * 8. Equipment Listing Submitted (Pending Moderator Review)
+ */
+async function sendEquipmentSubmittedEmail({ user, equipment }) {
+  const userName = user?.name || 'Community Steward';
+  const equipmentName = equipment?.name || 'Equipment';
+
+  const html = renderEmailLayout({
+    title: `Equipment Listing Received: ${equipmentName}`,
+    badge: 'Pending Verification',
+    badgeBg: '#FEF3C7',
+    badgeColor: '#92400E',
+    greeting: userName,
+    message: `Thank you for contributing to the Tezpur University Equipment Pool! Your listing for <strong>${equipmentName}</strong> has been submitted and is currently pending moderation.`,
+    details: [
+      ['Equipment', equipmentName],
+      ['Category', equipment?.category || 'General'],
+      ['Quantity', `${equipment?.quantity || 1} units`],
+      ['Max Loan Duration', `${equipment?.maxBorrowDays || 3} days`],
+      ['Location', equipment?.location || 'Tezpur University Campus'],
+      ['Condition', (equipment?.condition?.status || 'Good').toUpperCase()],
+    ],
+    alertBox: {
+      bg: '#FFFBEB',
+      border: '#FDE68A',
+      color: '#92400E',
+      title: 'Moderator Review Process',
+      text: 'Department administrators review listings to verify photo clarity and specification accuracy before publishing to the active campus catalogue.',
+    },
+    ctaText: 'View My Equipment',
+    ctaUrl: `${portalUrl}/dashboard`,
+  });
+
+  return sendEmail({
+    to: user?.email,
+    subject: `Listing Received: ${equipmentName} (Pending Review)`,
+    html,
+  });
+}
+
+/**
+ * 9. Equipment Listing Approved (Live on Campus Catalogue)
+ */
+async function sendEquipmentApprovedEmail({ user, equipment }) {
+  const userName = user?.name || 'Community Steward';
+  const equipmentName = equipment?.name || 'Equipment';
+  const equipId = equipment?._id ? String(equipment._id) : '';
+
+  const html = renderEmailLayout({
+    title: `Listing Approved: ${equipmentName}`,
+    badge: 'Live in Catalogue',
+    badgeBg: '#DCFCE7',
+    badgeColor: '#15803D',
+    greeting: userName,
+    message: `Great news! Your equipment listing for <strong>${equipmentName}</strong> has been approved by the department steward. It is now live in the university catalogue and available for campus reservations.`,
+    details: [
+      ['Equipment', equipmentName],
+      ['Category', equipment?.category || 'General'],
+      ['Quantity', `${equipment?.quantity || 1} units`],
+      ['Loan Limit', `${equipment?.maxBorrowDays || 3} days per loan`],
+      ['Availability Status', (equipment?.availability || 'Available').toUpperCase()],
+    ],
+    ctaText: 'View Equipment Page',
+    ctaUrl: equipId ? `${portalUrl}/equipment/${equipId}` : `${portalUrl}/equipment`,
+  });
+
+  return sendEmail({
+    to: user?.email,
+    subject: `🎉 Approved: ${equipmentName} is Now Live in Campus Catalogue`,
+    html,
+  });
+}
+
+/**
+ * 10. Equipment Listing Rejected (Moderator Feedback)
+ */
+async function sendEquipmentRejectedEmail({ user, equipment, reason = '' }) {
+  const userName = user?.name || 'Community Steward';
+  const equipmentName = equipment?.name || 'Equipment';
+
+  const html = renderEmailLayout({
+    title: `Listing Not Approved: ${equipmentName}`,
+    badge: 'Listing Declined',
+    badgeBg: '#FEE2E2',
+    badgeColor: '#991B1B',
+    greeting: userName,
+    message: `Your equipment submission for <strong>${equipmentName}</strong> could not be approved for the public campus catalogue at this time.`,
+    alertBox: {
+      bg: '#FEF2F2',
+      border: '#FECACA',
+      color: '#991B1B',
+      title: 'Moderator Reason',
+      text: reason || 'Listing did not meet university photo guidelines or equipment specification criteria.',
+    },
+    details: [
+      ['Equipment', equipmentName],
+      ['Category', equipment?.category || 'General'],
+      ['Status', 'Rejected / Re-submission Required'],
+    ],
+    ctaText: 'Submit New Equipment',
+    ctaUrl: `${portalUrl}/equipment/new`,
+  });
+
+  return sendEmail({
+    to: user?.email,
+    subject: `Listing Notice: ${equipmentName} was not approved`,
+    html,
+  });
+}
+
 module.exports = {
   sendEmail,
   sendBookingRequestedEmail,
@@ -535,4 +645,7 @@ module.exports = {
   sendReturnConfirmedEmail,
   sendOverdueWarningEmail,
   sendConditionResolvedEmail,
+  sendEquipmentSubmittedEmail,
+  sendEquipmentApprovedEmail,
+  sendEquipmentRejectedEmail,
 };

@@ -1,6 +1,7 @@
 const express = require('express');
 const { Equipment, Booking, ActivityLog } = require('../models');
 const { requireUser } = require('../middleware/auth');
+const { sendEquipmentSubmittedEmail } = require('../services/email');
 const memoryCache = require('../lib/cache');
 const { isDbConnected } = require('../lib/db');
 const {
@@ -281,6 +282,12 @@ router.post('/', requireUser, async (req, res, next) => {
       equipment: item._id,
       message: `Added ${item.name} (pending approval)`,
     });
+
+    // Send confirmation email to the equipment submitter
+    sendEquipmentSubmittedEmail({
+      user: req.dbUser,
+      equipment: item,
+    }).catch((err) => console.warn('[Email] Error sending equipment submitted email:', err.message));
 
     memoryCache.clearPrefix('equipment:');
     res.status(201).json(item);
