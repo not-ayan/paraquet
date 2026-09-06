@@ -9,7 +9,7 @@ const NAV_ITEMS = [
   { href: '/equipment/pending', label: 'Pending Equipment' },
   { href: '/equipment', label: 'All Equipment', exact: true },
   { href: '/bookings/pending', label: 'Pending Bookings' },
-  { href: '/bookings/flagged', label: 'Flagged Bookings' },
+  { href: '/bookings/flagged', label: 'Flagged Returns' },
   { href: '/users', label: 'Users' },
   { href: '/logs', label: 'Activity Log' },
 ];
